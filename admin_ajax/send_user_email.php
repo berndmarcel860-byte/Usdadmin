@@ -1,12 +1,30 @@
 <?php
 require_once '../admin_session.php';
 
-// Use absolute path for vendor autoload based on server structure
-$rootPath = $_SERVER['DOCUMENT_ROOT'] . '/app';
-if (file_exists($rootPath . '/vendor/autoload.php')) {
-    require_once $rootPath . '/vendor/autoload.php';
-} elseif (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
-    require_once __DIR__ . '/../../vendor/autoload.php';
+// Try multiple paths for vendor autoload to support different deployment structures
+$vendorPaths = [
+    $_SERVER['DOCUMENT_ROOT'] . '/app/vendor/autoload.php',
+    __DIR__ . '/../../vendor/autoload.php',
+    __DIR__ . '/../vendor/autoload.php',
+    dirname(dirname(__DIR__)) . '/vendor/autoload.php'
+];
+
+$autoloadFound = false;
+foreach ($vendorPaths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $autoloadFound = true;
+        break;
+    }
+}
+
+if (!$autoloadFound) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'PHPMailer not found. Please ensure Composer dependencies are installed.'
+    ]);
+    exit;
 }
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -65,19 +83,25 @@ try {
         'registration_date' => date('Y-m-d', strtotime($user['created_at']))
     ];
     
+    // Define fallback constants
+    define('DEFAULT_SITE_URL', 'https://kryptox.co.uk');
+    define('DEFAULT_SITE_NAME', 'KryptoX');
+    define('DEFAULT_CONTACT_EMAIL', 'info@kryptox.co.uk');
+    define('DEFAULT_FROM_NAME', 'System Admin');
+    
     // Get site settings for additional variables
     $stmt = $pdo->query("SELECT * FROM system_settings LIMIT 1");
     $settings = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($settings) {
-        $variables['site_url'] = $settings['site_url'] ?? 'https://kryptox.co.uk';
-        $variables['site_name'] = $settings['brand_name'] ?? 'KryptoX';
-        $variables['contact_email'] = $settings['contact_email'] ?? 'info@kryptox.co.uk';
+        $variables['site_url'] = $settings['site_url'] ?? DEFAULT_SITE_URL;
+        $variables['site_name'] = $settings['brand_name'] ?? DEFAULT_SITE_NAME;
+        $variables['contact_email'] = $settings['contact_email'] ?? DEFAULT_CONTACT_EMAIL;
         $variables['contact_phone'] = $settings['contact_phone'] ?? '';
     } else {
-        $variables['site_url'] = 'https://kryptox.co.uk';
-        $variables['site_name'] = 'KryptoX';
-        $variables['contact_email'] = 'info@kryptox.co.uk';
+        $variables['site_url'] = DEFAULT_SITE_URL;
+        $variables['site_name'] = DEFAULT_SITE_NAME;
+        $variables['contact_email'] = DEFAULT_CONTACT_EMAIL;
         $variables['contact_phone'] = '';
     }
     
@@ -110,7 +134,7 @@ try {
         $mail->CharSet = 'UTF-8';
         
         $fromEmail = $smtpSettings['from_email'] ?? $smtpSettings['username'];
-        $fromName = $smtpSettings['from_name'] ?? 'KryptoX Admin';
+        $fromName = $smtpSettings['from_name'] ?? ($settings['brand_name'] ?? DEFAULT_FROM_NAME);
         
         $mail->setFrom($fromEmail, $fromName);
         $mail->addAddress($user['email'], $user['first_name'] . ' ' . $user['last_name']);

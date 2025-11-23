@@ -164,6 +164,17 @@ require_once 'admin_header.php';
 <?php require_once 'admin_footer.php'; ?>
 
 <script>
+// Utility functions
+window.escapeHtml = function(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+};
+
+window.decodeHtml = function(html) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+};
+
 $(document).ready(function() {
 
     // Initialize DataTable
@@ -189,9 +200,8 @@ order: [[0,'desc']],
             {
                 data: null,
                 render: function(data, type, row) {
-                    const escapeHtml = (str) => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-                    const email = escapeHtml(data.email);
-                    const name = escapeHtml(data.first_name + ' ' + data.last_name);
+                    const email = window.escapeHtml(data.email);
+                    const name = window.escapeHtml(data.first_name + ' ' + data.last_name);
                     return `
                     <div class="btn-group">
                         <button class="btn btn-sm btn-info view-user" data-id="${data.id}" title="View Details">
@@ -278,15 +288,8 @@ order: [[0,'desc']],
         const userEmail = $(this).data('email');
         const userName = $(this).data('name');
         
-        // Decode HTML entities
-        const decodeHtml = (html) => {
-            const txt = document.createElement('textarea');
-            txt.innerHTML = html;
-            return txt.value;
-        };
-        
         $('#send_mail_user_id').val(userId);
-        $('#send_mail_recipient').val(`${decodeHtml(userName)} <${decodeHtml(userEmail)}>`);
+        $('#send_mail_recipient').val(`${window.decodeHtml(userName)} <${window.decodeHtml(userEmail)}>`);
         $('#send_mail_subject').val('');
         $('#send_mail_content').val('');
         $('#send_mail_variables').hide();
@@ -301,7 +304,11 @@ order: [[0,'desc']],
                     if (response.data && response.data.length > 0) {
                         let options = '<option value="">Custom Email (No Template)</option>';
                         response.data.forEach(template => {
-                            options += `<option value="${template.id}" data-subject="${template.subject}" data-content="${template.content}" data-variables="${template.variables || ''}">${template.template_key} - ${template.subject}</option>`;
+                            const escapedSubject = window.escapeHtml(template.subject);
+                            const escapedContent = window.escapeHtml(template.content);
+                            const escapedVars = window.escapeHtml(template.variables || '');
+                            const escapedKey = window.escapeHtml(template.template_key);
+                            options += `<option value="${template.id}" data-subject="${escapedSubject}" data-content="${escapedContent}" data-variables="${escapedVars}">${escapedKey} - ${escapedSubject}</option>`;
                         });
                         $('#send_mail_template_select').html(options);
                     }
@@ -318,8 +325,9 @@ order: [[0,'desc']],
         const templateId = $(this).val();
         
         if (templateId) {
-            const subject = selected.data('subject') || '';
-            const content = selected.data('content') || '';
+            // Decode HTML entities from data attributes
+            const subject = window.decodeHtml(selected.data('subject') || '');
+            const content = window.decodeHtml(selected.data('content') || '');
             const variables = selected.data('variables') || '';
             
             $('#send_mail_subject').val(subject);
@@ -327,11 +335,17 @@ order: [[0,'desc']],
             
             if (variables) {
                 try {
-                    const varList = typeof variables === 'string' ? JSON.parse(variables) : variables;
-                    const varText = Array.isArray(varList) ? varList.map(v => `{${v}}`).join(', ') : variables;
+                    // Safely parse JSON with validation
+                    const varList = typeof variables === 'string' && variables.trim().startsWith('[') 
+                        ? JSON.parse(variables) 
+                        : variables;
+                    const varText = Array.isArray(varList) 
+                        ? varList.map(v => `{${window.escapeHtml(v)}}`).join(', ') 
+                        : window.escapeHtml(variables);
                     $('#variable_list').text(varText);
                     $('#send_mail_variables').show();
                 } catch(e) {
+                    console.warn('Failed to parse template variables:', e);
                     $('#send_mail_variables').hide();
                 }
             } else {

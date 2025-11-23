@@ -304,13 +304,14 @@ order: [[0,'desc']],
                     if (response.data && response.data.length > 0) {
                         let options = '<option value="">Custom Email (No Template)</option>';
                         response.data.forEach(template => {
-                            const escapedSubject = window.escapeHtml(template.subject);
-                            const escapedContent = window.escapeHtml(template.content);
-                            const escapedVars = window.escapeHtml(template.variables || '');
                             const escapedKey = window.escapeHtml(template.template_key);
-                            options += `<option value="${template.id}" data-subject="${escapedSubject}" data-content="${escapedContent}" data-variables="${escapedVars}">${escapedKey} - ${escapedSubject}</option>`;
+                            const escapedSubject = window.escapeHtml(template.subject);
+                            // Store template data in a separate object instead of data attributes to avoid escaping issues
+                            options += `<option value="${template.id}">${escapedKey} - ${escapedSubject}</option>`;
                         });
                         $('#send_mail_template_select').html(options);
+                        // Store templates in a global variable for later access
+                        window.emailTemplatesData = response.data;
                     }
                 }
             });
@@ -321,40 +322,157 @@ order: [[0,'desc']],
     
     // Template selection handler
     $('#send_mail_template_select').change(function() {
-        const selected = $(this).find(':selected');
         const templateId = $(this).val();
         
-        if (templateId) {
-            // Decode HTML entities from data attributes
-            const subject = window.decodeHtml(selected.data('subject') || '');
-            const content = window.decodeHtml(selected.data('content') || '');
-            const variables = selected.data('variables') || '';
+        if (templateId && window.emailTemplatesData) {
+            // Find the template in the stored data
+            const template = window.emailTemplatesData.find(t => t.id == templateId);
             
-            $('#send_mail_subject').val(subject);
-            $('#send_mail_content').val(content);
-            
-            if (variables) {
-                try {
-                    // Safely parse JSON with validation
-                    const varList = typeof variables === 'string' && variables.trim().startsWith('[') 
-                        ? JSON.parse(variables) 
-                        : variables;
-                    const varText = Array.isArray(varList) 
-                        ? varList.map(v => `{${window.escapeHtml(v)}}`).join(', ') 
-                        : window.escapeHtml(variables);
-                    $('#variable_list').text(varText);
-                    $('#send_mail_variables').show();
-                } catch(e) {
-                    console.warn('Failed to parse template variables:', e);
+            if (template) {
+                $('#send_mail_subject').val(template.subject);
+                $('#send_mail_content').val(template.content);
+                
+                if (template.variables) {
+                    try {
+                        // Safely parse JSON with validation
+                        const varList = typeof template.variables === 'string' && template.variables.trim().startsWith('[') 
+                            ? JSON.parse(template.variables) 
+                            : template.variables;
+                        const varText = Array.isArray(varList) 
+                            ? varList.map(v => `{${v}}`).join(', ') 
+                            : template.variables;
+                        $('#variable_list').text(varText);
+                        $('#send_mail_variables').show();
+                    } catch(e) {
+                        console.warn('Failed to parse template variables:', e);
+                        $('#send_mail_variables').hide();
+                    }
+                } else {
                     $('#send_mail_variables').hide();
                 }
-            } else {
-                $('#send_mail_variables').hide();
             }
         } else {
+            // Custom email selected - provide a default HTML template
             $('#send_mail_subject').val('');
-            $('#send_mail_content').val('');
-            $('#send_mail_variables').hide();
+            const defaultTemplate = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email from {site_name}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 640px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(90deg, #2950a8 0%, #2da9e3 100%);
+      color: #fff;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 25px;
+      background: #f9f9f9;
+    }
+    .highlight-box {
+      background: linear-gradient(90deg, #007bff10 0%, #007bff05 100%);
+      border-left: 5px solid #007bff;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .btn {
+      display: inline-block;
+      background: #007bff;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .signature {
+      margin-top: 40px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 25px;
+      font-size: 14px;
+      color: #555;
+      text-align: center;
+    }
+    .signature img {
+      height: 50px;
+      margin: 0 auto 12px;
+      display: block;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      padding: 15px;
+      background: #f1f3f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Your Subject Here</h1>
+    </div>
+
+    <div class="content">
+      <p>Sehr geehrte/r {first_name} {last_name},</p>
+
+      <p>
+        Your message content goes here...
+      </p>
+
+      <div class="highlight-box">
+        <h3>Important Information</h3>
+        <p>Add your important details here...</p>
+      </div>
+
+      <p style="text-align:center;">
+        <a href="{site_url}/login.php" class="btn">Zum Kundenportal</a>
+      </p>
+
+      <p>Mit freundlichen Grüßen,</p>
+
+      <div class="signature">
+        <img src="https://kryptox.co.uk/assets/img/logo.png" alt="KryptoX Logo"><br>
+        <strong>KryptoX Team</strong><br>
+        Davidson House Forbury Square, Reading, RG1 3EU, UNITED KINGDOM<br>
+        E: <a href="mailto:{contact_email}">{contact_email}</a> | 
+        W: <a href="{site_url}">{site_url}</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      © 2025 {site_name}. Alle Rechte vorbehalten.
+    </div>
+  </div>
+</body>
+</html>`;
+            $('#send_mail_content').val(defaultTemplate);
+            $('#send_mail_variables').show();
+            $('#variable_list').text('{first_name}, {last_name}, {email}, {user_id}, {balance}, {status}, {site_url}, {site_name}, {contact_email}');
         }
     });
     

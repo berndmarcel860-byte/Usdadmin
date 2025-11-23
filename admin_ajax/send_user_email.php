@@ -111,6 +111,120 @@ try {
         $content = str_replace(['{' . $key . '}', '{{' . $key . '}}'], $value, $content);
     }
     
+    // Check if HTML wrapper should be applied for custom emails
+    $useHtmlWrapper = isset($_POST['use_html_wrapper']) && $_POST['use_html_wrapper'] == '1';
+    
+    if ($useHtmlWrapper) {
+        // Wrap content in professional HTML template
+        $htmlTemplate = '<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>' . htmlspecialchars($subject) . '</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 640px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(90deg, #2950a8 0%, #2da9e3 100%);
+      color: #fff;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 25px;
+      background: #f9f9f9;
+    }
+    .highlight-box {
+      background: linear-gradient(90deg, #007bff10 0%, #007bff05 100%);
+      border-left: 5px solid #007bff;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .btn {
+      display: inline-block;
+      background: #007bff;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .signature {
+      margin-top: 40px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 25px;
+      font-size: 14px;
+      color: #555;
+      text-align: center;
+    }
+    .signature img {
+      height: 50px;
+      margin: 0 auto 12px;
+      display: block;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      padding: 15px;
+      background: #f1f3f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>' . htmlspecialchars($subject) . '</h1>
+    </div>
+
+    <div class="content">
+      <p>Sehr geehrte/r ' . htmlspecialchars($user['first_name']) . ' ' . htmlspecialchars($user['last_name']) . ',</p>
+
+      ' . $content . '
+
+      <p>Mit freundlichen Grüßen,</p>
+
+      <div class="signature">
+        <img src="https://kryptox.co.uk/assets/img/logo.png" alt="' . htmlspecialchars($variables['site_name']) . ' Logo"><br>
+        <strong>' . htmlspecialchars($variables['site_name']) . ' Team</strong><br>
+        Davidson House Forbury Square, Reading, RG1 3EU, UNITED KINGDOM<br>
+        E: <a href="mailto:' . htmlspecialchars($variables['contact_email']) . '">' . htmlspecialchars($variables['contact_email']) . '</a> | 
+        W: <a href="' . htmlspecialchars($variables['site_url']) . '">' . htmlspecialchars($variables['site_url']) . '</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      © 2025 ' . htmlspecialchars($variables['site_name']) . '. Alle Rechte vorbehalten.
+    </div>
+  </div>
+</body>
+</html>';
+        
+        $content = $htmlTemplate;
+    }
+    
     // Initialize PHPMailer for custom content
     try {
         $mail = new PHPMailer(true);

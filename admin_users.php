@@ -143,9 +143,10 @@ require_once 'admin_header.php';
           </div>
           <div class="form-group">
             <label>Message</label>
-            <textarea class="form-control" name="content" id="send_mail_content" rows="12" required></textarea>
-            <small class="form-text text-muted">You can use variables: {first_name}, {last_name}, {email}, {user_id}</small>
+            <textarea class="form-control" name="content" id="send_mail_content" rows="8" required></textarea>
+            <small class="form-text text-muted">Write your message here. HTML formatting will be applied automatically. You can use variables: {first_name}, {last_name}, {email}, {user_id}, {balance}, {site_url}, etc.</small>
           </div>
+          <input type="hidden" name="use_html_wrapper" id="use_html_wrapper" value="1">
           <div id="send_mail_variables" class="alert alert-info" style="display:none;">
             <strong>Available Variables:</strong> <span id="variable_list"></span>
           </div>
@@ -331,6 +332,7 @@ order: [[0,'desc']],
             if (template) {
                 $('#send_mail_subject').val(template.subject);
                 $('#send_mail_content').val(template.content);
+                $('#use_html_wrapper').val('0'); // Don't wrap template content
                 
                 if (template.variables) {
                     try {
@@ -352,125 +354,11 @@ order: [[0,'desc']],
                 }
             }
         } else {
-            // Custom email selected - provide a default HTML template
+            // Custom email selected - just show empty message field
+            // HTML wrapper will be applied automatically on the backend
             $('#send_mail_subject').val('');
-            const defaultTemplate = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email from {site_name}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 640px;
-      margin: 30px auto;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
-    .header {
-      background: linear-gradient(90deg, #2950a8 0%, #2da9e3 100%);
-      color: #fff;
-      text-align: center;
-      padding: 30px 20px;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 26px;
-      font-weight: 600;
-    }
-    .content {
-      padding: 25px;
-      background: #f9f9f9;
-    }
-    .highlight-box {
-      background: linear-gradient(90deg, #007bff10 0%, #007bff05 100%);
-      border-left: 5px solid #007bff;
-      padding: 20px;
-      border-radius: 6px;
-      margin: 20px 0;
-    }
-    .btn {
-      display: inline-block;
-      background: #007bff;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: bold;
-      margin: 20px 0;
-    }
-    .signature {
-      margin-top: 40px;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 25px;
-      font-size: 14px;
-      color: #555;
-      text-align: center;
-    }
-    .signature img {
-      height: 50px;
-      margin: 0 auto 12px;
-      display: block;
-    }
-    .footer {
-      text-align: center;
-      font-size: 12px;
-      color: #777;
-      padding: 15px;
-      background: #f1f3f5;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Your Subject Here</h1>
-    </div>
-
-    <div class="content">
-      <p>Sehr geehrte/r {first_name} {last_name},</p>
-
-      <p>
-        Your message content goes here...
-      </p>
-
-      <div class="highlight-box">
-        <h3>Important Information</h3>
-        <p>Add your important details here...</p>
-      </div>
-
-      <p style="text-align:center;">
-        <a href="{site_url}/login.php" class="btn">Zum Kundenportal</a>
-      </p>
-
-      <p>Mit freundlichen Grüßen,</p>
-
-      <div class="signature">
-        <img src="https://kryptox.co.uk/assets/img/logo.png" alt="KryptoX Logo"><br>
-        <strong>KryptoX Team</strong><br>
-        Davidson House Forbury Square, Reading, RG1 3EU, UNITED KINGDOM<br>
-        E: <a href="mailto:{contact_email}">{contact_email}</a> | 
-        W: <a href="{site_url}">{site_url}</a>
-      </div>
-    </div>
-
-    <div class="footer">
-      © 2025 {site_name}. Alle Rechte vorbehalten.
-    </div>
-  </div>
-</body>
-</html>`;
-            $('#send_mail_content').val(defaultTemplate);
+            $('#send_mail_content').val('');
+            $('#use_html_wrapper').val('1');
             $('#send_mail_variables').show();
             $('#variable_list').text('{first_name}, {last_name}, {email}, {user_id}, {balance}, {status}, {site_url}, {site_name}, {contact_email}');
         }

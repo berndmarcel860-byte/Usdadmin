@@ -188,7 +188,11 @@ order: [[0,'desc']],
             { data: 'created_at', render: d => new Date(d).toLocaleDateString() },
             {
                 data: null,
-                render: data => `
+                render: function(data, type, row) {
+                    const escapeHtml = (str) => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+                    const email = escapeHtml(data.email);
+                    const name = escapeHtml(data.first_name + ' ' + data.last_name);
+                    return `
                     <div class="btn-group">
                         <button class="btn btn-sm btn-info view-user" data-id="${data.id}" title="View Details">
                             <i class="anticon anticon-eye"></i>
@@ -196,13 +200,14 @@ order: [[0,'desc']],
                         <button class="btn btn-sm btn-primary edit-user" data-id="${data.id}" title="Edit User">
                             <i class="anticon anticon-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-success send-mail-user" data-id="${data.id}" data-email="${data.email}" data-name="${data.first_name} ${data.last_name}" title="Send Email">
+                        <button class="btn btn-sm btn-success send-mail-user" data-id="${data.id}" data-email="${email}" data-name="${name}" title="Send Email">
                             <i class="anticon anticon-mail"></i>
                         </button>
                         <button class="btn btn-sm btn-danger delete-user" data-id="${data.id}" title="Delete User">
                             <i class="anticon anticon-delete"></i>
                         </button>
-                    </div>`
+                    </div>`;
+                }
             }
         ]
     });
@@ -273,8 +278,15 @@ order: [[0,'desc']],
         const userEmail = $(this).data('email');
         const userName = $(this).data('name');
         
+        // Decode HTML entities
+        const decodeHtml = (html) => {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = html;
+            return txt.value;
+        };
+        
         $('#send_mail_user_id').val(userId);
-        $('#send_mail_recipient').val(`${userName} <${userEmail}>`);
+        $('#send_mail_recipient').val(`${decodeHtml(userName)} <${decodeHtml(userEmail)}>`);
         $('#send_mail_subject').val('');
         $('#send_mail_content').val('');
         $('#send_mail_variables').hide();

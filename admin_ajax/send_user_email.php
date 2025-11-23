@@ -1,6 +1,16 @@
 <?php
 require_once '../admin_session.php';
-require_once '../mail_functions.php';
+
+// Use absolute path for vendor autoload based on server structure
+$rootPath = $_SERVER['DOCUMENT_ROOT'] . '/app';
+if (file_exists($rootPath . '/vendor/autoload.php')) {
+    require_once $rootPath . '/vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+}
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 header('Content-Type: application/json');
 
@@ -77,12 +87,9 @@ try {
         $content = str_replace(['{' . $key . '}', '{{' . $key . '}}'], $value, $content);
     }
     
-    // Initialize mailer
+    // Initialize PHPMailer for custom content
     try {
-        $mailer = new Mailer($pdo);
-        
-        // Use PHPMailer directly for custom content
-        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail = new PHPMailer(true);
         
         // Load SMTP settings
         $stmt = $pdo->query("SELECT * FROM smtp_settings LIMIT 1");

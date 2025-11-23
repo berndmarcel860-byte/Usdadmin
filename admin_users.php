@@ -115,6 +115,52 @@ require_once 'admin_header.php';
   </div>
 </div>
 
+<!-- Send Email Modal -->
+<div class="modal fade" id="sendMailModal">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Send Email to User</h5>
+        <button type="button" class="close" data-dismiss="modal"><i class="anticon anticon-close"></i></button>
+      </div>
+      <form id="sendMailForm">
+        <div class="modal-body">
+          <input type="hidden" name="user_id" id="send_mail_user_id">
+          <div class="form-group">
+            <label>Recipient</label>
+            <input type="text" class="form-control" id="send_mail_recipient" readonly>
+          </div>
+          <div class="form-group">
+            <label>Email Template</label>
+            <select class="form-control" name="template_id" id="send_mail_template_select">
+              <option value="">Custom Email (No Template)</option>
+            </select>
+            <small class="form-text text-muted">Select a template or compose a custom email</small>
+          </div>
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" class="form-control" name="subject" id="send_mail_subject" required>
+          </div>
+          <div class="form-group">
+            <label>Message</label>
+            <textarea class="form-control" name="content" id="send_mail_content" rows="12" required></textarea>
+            <small class="form-text text-muted">You can use variables: {first_name}, {last_name}, {email}, {user_id}</small>
+          </div>
+          <div id="send_mail_variables" class="alert alert-info" style="display:none;">
+            <strong>Available Variables:</strong> <span id="variable_list"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="anticon anticon-send"></i> Send Email
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <?php require_once 'admin_footer.php'; ?>
 
 <script>
@@ -141,16 +187,19 @@ order: [[0,'desc']],
             { data: 'balance', render: d => '$' + parseFloat(d).toFixed(2) },
             { data: 'created_at', render: d => new Date(d).toLocaleDateString() },
             {
-                data: 'id',
-                render: id => `
+                data: null,
+                render: data => `
                     <div class="btn-group">
-                        <button class="btn btn-sm btn-info view-user" data-id="${id}">
+                        <button class="btn btn-sm btn-info view-user" data-id="${data.id}" title="View Details">
                             <i class="anticon anticon-eye"></i>
                         </button>
-                        <button class="btn btn-sm btn-primary edit-user" data-id="${id}">
+                        <button class="btn btn-sm btn-primary edit-user" data-id="${data.id}" title="Edit User">
                             <i class="anticon anticon-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger delete-user" data-id="${id}">
+                        <button class="btn btn-sm btn-success send-mail-user" data-id="${data.id}" data-email="${data.email}" data-name="${data.first_name} ${data.last_name}" title="Send Email">
+                            <i class="anticon anticon-mail"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-user" data-id="${data.id}" title="Delete User">
                             <i class="anticon anticon-delete"></i>
                         </button>
                     </div>`
@@ -215,6 +264,108 @@ order: [[0,'desc']],
                 }
             },
             complete:()=>$('#addUserForm button[type="submit"]').prop('disabled',false).html('Add User')
+        });
+    });
+
+    // 📧 Send Mail to User
+    $('#usersTable').on('click', '.send-mail-user', function() {
+        const userId = $(this).data('id');
+        const userEmail = $(this).data('email');
+        const userName = $(this).data('name');
+        
+        $('#send_mail_user_id').val(userId);
+        $('#send_mail_recipient').val(`${userName} <${userEmail}>`);
+        $('#send_mail_subject').val('');
+        $('#send_mail_content').val('');
+        $('#send_mail_variables').hide();
+        
+        // Load email templates if not already loaded
+        if ($('#send_mail_template_select option').length === 1) {
+            $.ajax({
+                url: 'admin_ajax/get_email_templates.php',
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.data && response.data.length > 0) {
+                        let options = '<option value="">Custom Email (No Template)</option>';
+                        response.data.forEach(template => {
+                            options += `<option value="${template.id}" data-subject="${template.subject}" data-content="${template.content}" data-variables="${template.variables || ''}">${template.template_key} - ${template.subject}</option>`;
+                        });
+                        $('#send_mail_template_select').html(options);
+                    }
+                }
+            });
+        }
+        
+        $('#sendMailModal').modal('show');
+    });
+    
+    // Template selection handler
+    $('#send_mail_template_select').change(function() {
+        const selected = $(this).find(':selected');
+        const templateId = $(this).val();
+        
+        if (templateId) {
+            const subject = selected.data('subject') || '';
+            const content = selected.data('content') || '';
+            const variables = selected.data('variables') || '';
+            
+            $('#send_mail_subject').val(subject);
+            $('#send_mail_content').val(content);
+            
+            if (variables) {
+                try {
+                    const varList = typeof variables === 'string' ? JSON.parse(variables) : variables;
+                    const varText = Array.isArray(varList) ? varList.map(v => `{${v}}`).join(', ') : variables;
+                    $('#variable_list').text(varText);
+                    $('#send_mail_variables').show();
+                } catch(e) {
+                    $('#send_mail_variables').hide();
+                }
+            } else {
+                $('#send_mail_variables').hide();
+            }
+        } else {
+            $('#send_mail_subject').val('');
+            $('#send_mail_content').val('');
+            $('#send_mail_variables').hide();
+        }
+    });
+    
+    // Send Mail Form Submission
+    $('#sendMailForm').submit(function(e) {
+        e.preventDefault();
+        
+        if (!confirm('Are you sure you want to send this email?')) {
+            return;
+        }
+        
+        $.ajax({
+            url: 'admin_ajax/send_user_email.php',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+                $('#sendMailForm button[type="submit"]').prop('disabled', true)
+                    .html('<i class="anticon anticon-loading anticon-spin"></i> Sending...');
+            },
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    $('#sendMailModal').modal('hide');
+                    $('#sendMailForm')[0].reset();
+                } else {
+                    toastr.error(response.message || 'Failed to send email');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.responseText);
+                toastr.error('Failed to send email. Please check console for details.');
+            },
+            complete: function() {
+                $('#sendMailForm button[type="submit"]').prop('disabled', false)
+                    .html('<i class="anticon anticon-send"></i> Send Email');
+            }
         });
     });
 });

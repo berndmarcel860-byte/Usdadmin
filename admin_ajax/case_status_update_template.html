@@ -1,0 +1,141 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <title>Fallstatus Aktualisierung</title>
+    <style type="text/css">
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            color: #333333;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #0056b3;
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .status-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0056b3;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .document-alert {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0056b3;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            color: #999999;
+            font-size: 12px;
+            margin-top: 30px;
+        }
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Fallstatus aktualisiert</h1>
+        </div>
+        
+        <div class="content">
+            <p>Sehr geehrte/r {{first_name}} {{last_name}},</p>
+            <p>der Status Ihres Falls wurde aktualisiert. Hier sind die Details:</p>
+            
+            <div class="status-box">
+                <h2 style="margin-top: 0;">Statusänderung</h2>
+                <p><strong>Fallnummer:</strong> {{case_number}}</p>
+                <p><strong>Vorheriger Status:</strong> {{old_status}}</p>
+                <p><strong>Neuer Status:</strong> {{new_status}}</p>
+                <p><strong>Datum der Änderung:</strong> {{update_date}}</p>
+                
+                {{#if status_notes}}
+                <p><strong>Bemerkungen:</strong><br>
+                {{status_notes}}</p>
+                {{/if}}
+            </div>
+            
+            {{#if new_status '==' 'document_required'}}
+            <div class="document-alert">
+                <h3 style="margin-top: 0; color: #856404;">Dokumente erforderlich</h3>
+                <p>Um Ihren Fall weiter bearbeiten zu können, benötigen wir folgende Unterlagen:</p>
+                <ul>
+                    <li>Kopie Ihres Personalausweises/Reisepasses (beide Seiten)</li>
+                    <li>Zahlungsbelege/Überweisungsbestätigungen</li>
+                    <li>Alle relevanten Korrespondenzen (E-Mails, Chatverläufe)</li>
+                    <li>Vertragsunterlagen (falls vorhanden)</li>
+                </ul>
+                <p>Bitte laden Sie die Dokumente in Ihrem Kundenportal hoch oder senden Sie sie als Anhang an: <a href="mailto:dokumente@scamrecovery.de">dokumente@scamrecovery.de</a></p>
+            </div>
+            {{/if}}
+            
+            {{#if new_status '==' 'under_review'}}
+            <div style="background-color: #e7f5ff; padding: 15px; border-left: 4px solid #4dabf7; margin: 20px 0;">
+                <p><strong>Nächste Schritte:</strong> Ihr Fall wird nun von unserem Expertenteam geprüft. Diese Prüfung kann 3-5 Werktage in Anspruch nehmen.</p>
+            </div>
+            {{/if}}
+            
+            {{#if new_status '==' 'in_progress'}}
+            <div style="background-color: #e6fcf5; padding: 15px; border-left: 4px solid #38d9a9; margin: 20px 0;">
+                <p><strong>Nächste Schritte:</strong> Wir bearbeiten nun aktiv Ihren Fall. Unser Team wird Sie bei Bedarf kontaktieren.</p>
+            </div>
+            {{/if}}
+            
+            <p>Sie können den aktuellen Status und alle Details Ihres Falls jederzeit in Ihrem Kundenportal einsehen:</p>
+            
+            <p style="text-align: center;">
+                <a href="{{surl}}/login" class="button">Zum Kundenportal</a>
+            </p>
+            
+            <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+            
+            <p>Mit freundlichen Grüßen,<br>
+            Ihr ScamRecovery Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>ScamRecovery GmbH<br>
+            Musterstraße 123, 10115 Berlin<br>
+            Tel: +49 30 12345678 | E-Mail: <a href="mailto:info@scamrecovery.de">info@scamrecovery.de</a></p>
+            <p>© {{current_year}} ScamRecovery. Alle Rechte vorbehalten.</p>
+        </div>
+    </div>
+</body>
+</html>

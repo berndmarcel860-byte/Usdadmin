@@ -26,6 +26,59 @@ try {
         throw new Exception('User not found');
     }
 
+    // --------------------------------
+    // 📊 Case Recovery Stats
+    // --------------------------------
+    $stmtCaseStats = $pdo->prepare("
+        SELECT 
+            COUNT(*) as total_cases,
+            COALESCE(SUM(reported_amount), 0) as total_reported,
+            COALESCE(SUM(recovered_amount), 0) as total_recovered,
+            SUM(CASE WHEN status IN ('open', 'documents_required', 'under_review') THEN 1 ELSE 0 END) as processing,
+            SUM(CASE WHEN status = 'refund_approved' THEN 1 ELSE 0 END) as approved,
+            SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed
+        FROM cases WHERE user_id = ?
+    ");
+    $stmtCaseStats->execute([$userId]);
+    $caseStats = $stmtCaseStats->fetch(PDO::FETCH_ASSOC);
+
+    // --------------------------------
+    // 📦 User Package Info
+    // --------------------------------
+    $stmtPackage = $pdo->prepare("
+        SELECT up.*, p.name as package_name, p.price, p.duration_days
+        FROM user_packages up
+        JOIN packages p ON up.package_id = p.id
+        WHERE up.user_id = ? 
+        ORDER BY up.created_at DESC LIMIT 1
+    ");
+    $stmtPackage->execute([$userId]);
+    $userPackage = $stmtPackage->fetch(PDO::FETCH_ASSOC);
+
+    $packageInfo = '';
+    if ($userPackage) {
+        $statusBadge = [
+            'active' => 'success',
+            'pending' => 'warning', 
+            'expired' => 'danger',
+            'cancelled' => 'secondary'
+        ][$userPackage['status']] ?? 'secondary';
+        
+        $packageInfo = "
+            <tr><th colspan='2' class='bg-light text-primary'><strong>📦 Package Information</strong></th></tr>
+            <tr><th>Package</th><td>{$userPackage['package_name']}</td></tr>
+            <tr><th>Price</th><td>€" . number_format($userPackage['price'], 2) . "</td></tr>
+            <tr><th>Status</th><td><span class='badge badge-{$statusBadge}'>{$userPackage['status']}</span></td></tr>
+            <tr><th>Start Date</th><td>{$userPackage['start_date']}</td></tr>
+            <tr><th>Expiration Date</th><td><strong>{$userPackage['end_date']}</strong></td></tr>
+        ";
+    } else {
+        $packageInfo = "
+            <tr><th colspan='2' class='bg-light text-primary'><strong>📦 Package Information</strong></th></tr>
+            <tr><td colspan='2' class='text-muted'>No package assigned</td></tr>
+        ";
+    }
+
     $basicHTML = "
         <table class='table'>
             <tr><th>ID</th><td>{$user['id']}</td></tr>
@@ -34,6 +87,16 @@ try {
             <tr><th>Status</th><td>{$user['status']}</td></tr>
             <tr><th>Balance</th><td>$" . number_format($user['balance'], 2) . "</td></tr>
             <tr><th>Registered</th><td>{$user['created_at']}</td></tr>
+            
+            <tr><th colspan='2' class='bg-light text-success'><strong>📊 Case Recovery Summary</strong></th></tr>
+            <tr><th>Total Cases</th><td>{$caseStats['total_cases']}</td></tr>
+            <tr><th>Cases Processing</th><td><span class='badge badge-warning'>{$caseStats['processing']}</span></td></tr>
+            <tr><th>Cases Approved</th><td><span class='badge badge-success'>{$caseStats['approved']}</span></td></tr>
+            <tr><th>Cases Closed</th><td><span class='badge badge-secondary'>{$caseStats['closed']}</span></td></tr>
+            <tr><th>Total Reported</th><td>€" . number_format($caseStats['total_reported'], 2) . "</td></tr>
+            <tr><th>Total Recovered</th><td><strong class='text-success'>€" . number_format($caseStats['total_recovered'], 2) . "</strong></td></tr>
+            
+            {$packageInfo}
         </table>
     ";
 

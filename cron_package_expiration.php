@@ -5,7 +5,8 @@
  * This script should be run daily via cron to:
  * 1. Check all user packages for expiration
  * 2. Update status to 'expired' for packages past end_date
- * 3. Log all status changes
+ * 3. Send email notification using 'trial_end' template for trial packages
+ * 4. Log all status changes
  * 
  * Setup cron: Run every hour or daily
  * 0 * * * * /usr/bin/php /path/to/cron_package_expiration.php
@@ -20,6 +21,30 @@ if (file_exists($rootPath . '/config.php')) {
 } else {
     require_once __DIR__ . '/../config.php';
 }
+
+// Try multiple paths for vendor autoload (needed for PHPMailer)
+$vendorPaths = [
+    $_SERVER['DOCUMENT_ROOT'] . '/app/vendor/autoload.php',
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/vendor/autoload.php',
+    dirname(__DIR__) . '/vendor/autoload.php'
+];
+
+$autoloadFound = false;
+foreach ($vendorPaths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $autoloadFound = true;
+        break;
+    }
+}
+
+if (!$autoloadFound) {
+    error_log('Package Expiration Cron: PHPMailer not found - emails will not be sent');
+}
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Log start
 error_log("Package Expiration Cron: Starting at " . date('Y-m-d H:i:s'));
@@ -72,6 +97,11 @@ try {
             
             error_log("Package Expiration Cron: Updated package ID {$package['user_package_id']} for user {$package['email']} (Package: {$package['package_name']}, End Date: {$package['end_date']})");
             
+            // Send trial_end email notification
+            if ($autoloadFound) {
+                sendTrialEndEmail($pdo, $package);
+            }
+            
             // Log to admin_logs if table exists
             try {
                 $logStmt = $pdo->prepare("
@@ -110,4 +140,142 @@ try {
 } catch (Exception $e) {
     error_log("Package Expiration Cron Error: " . $e->getMessage());
     exit(1);
+}
+
+/**
+ * Send email notification when trial/package expires using the 'trial_end' template
+ * 
+ * @param PDO $pdo Database connection
+ * @param array $package Package data with user info
+ * @return bool Success or failure
+ */
+function sendTrialEndEmail($pdo, $package) {
+    try {
+        // Get the 'trial_end' template from database
+        $templateStmt = $pdo->prepare("SELECT * FROM email_templates WHERE template_key = ? LIMIT 1");
+        $templateStmt->execute(['trial_end']);
+        $template = $templateStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$template) {
+            error_log("Package Expiration Cron: Email template 'trial_end' not found in database");
+            return false;
+        }
+        
+        // Get SMTP settings
+        $stmt = $pdo->query("SELECT * FROM smtp_settings LIMIT 1");
+        $smtpSettings = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$smtpSettings) {
+            error_log("Package Expiration Cron: SMTP settings not configured");
+            return false;
+        }
+        
+        // Get system settings for site info
+        $stmt = $pdo->query("SELECT * FROM system_settings LIMIT 1");
+        $settings = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $siteUrl = $settings['site_url'] ?? 'https://kryptox.co.uk';
+        $siteName = $settings['brand_name'] ?? 'KryptoX';
+        $contactEmail = $settings['contact_email'] ?? 'info@kryptox.co.uk';
+        $contactPhone = $settings['contact_phone'] ?? '';
+        
+        // Get user balance
+        $balanceStmt = $pdo->prepare("SELECT balance FROM users WHERE id = ?");
+        $balanceStmt->execute([$package['user_id']]);
+        $userData = $balanceStmt->fetch(PDO::FETCH_ASSOC);
+        $balance = $userData['balance'] ?? 0;
+        
+        // Prepare variables for replacement
+        $variables = [
+            // User variables
+            'first_name' => $package['first_name'],
+            'last_name' => $package['last_name'],
+            'email' => $package['email'],
+            'user_id' => $package['user_id'],
+            'full_name' => $package['first_name'] . ' ' . $package['last_name'],
+            'balance' => number_format($balance, 2),
+            
+            // Package variables
+            'package_name' => $package['package_name'],
+            'end_date' => date('d.m.Y', strtotime($package['end_date'])),
+            
+            // Site variables
+            'site_url' => $siteUrl,
+            'surl' => $siteUrl,
+            'site_name' => $siteName,
+            'sbrand' => $siteName,
+            'contact_email' => $contactEmail,
+            'semail' => $contactEmail,
+            'contact_phone' => $contactPhone,
+            'sphone' => $contactPhone
+        ];
+        
+        // Replace variables in subject and content
+        $subject = $template['subject'];
+        $content = $template['content'];
+        
+        foreach ($variables as $key => $value) {
+            $subject = str_replace(['{' . $key . '}', '{{' . $key . '}}'], $value, $subject);
+            $content = str_replace(['{' . $key . '}', '{{' . $key . '}}'], $value, $content);
+        }
+        
+        // Configure PHPMailer
+        $mail = new PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = $smtpSettings['host'];
+        $mail->SMTPAuth = true;
+        $mail->Username = $smtpSettings['username'];
+        $mail->Password = $smtpSettings['password'];
+        $mail->SMTPSecure = $smtpSettings['encryption'] ?? 'tls';
+        $mail->Port = $smtpSettings['port'] ?? 587;
+        $mail->CharSet = 'UTF-8';
+        
+        $fromEmail = $smtpSettings['from_email'] ?? $smtpSettings['username'];
+        $fromName = $smtpSettings['from_name'] ?? $siteName;
+        
+        $mail->setFrom($fromEmail, $fromName);
+        $mail->addAddress($package['email'], $package['first_name'] . ' ' . $package['last_name']);
+        $mail->isHTML(true);
+        
+        $mail->Subject = $subject;
+        $mail->Body = $content;
+        $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", $content));
+        
+        if ($mail->send()) {
+            // Log email to email_logs table
+            try {
+                $logStmt = $pdo->prepare("
+                    INSERT INTO email_logs (user_id, recipient, subject, content, template_id, sent_at, status)
+                    VALUES (?, ?, ?, ?, ?, NOW(), 'sent')
+                ");
+                $logStmt->execute([
+                    $package['user_id'],
+                    $package['email'],
+                    $subject,
+                    $content,
+                    $template['id']
+                ]);
+            } catch (PDOException $logError) {
+                // Try simpler insert if columns differ
+                try {
+                    $logStmt = $pdo->prepare("
+                        INSERT INTO email_logs (recipient, subject, content, sent_at, status)
+                        VALUES (?, ?, ?, NOW(), 'sent')
+                    ");
+                    $logStmt->execute([$package['email'], $subject, $content]);
+                } catch (PDOException $e) {
+                    error_log("Package Expiration Cron: Could not log email - " . $e->getMessage());
+                }
+            }
+            
+            error_log("Package Expiration Cron: Trial end email sent to " . $package['email']);
+            return true;
+        }
+        
+        return false;
+        
+    } catch (Exception $e) {
+        error_log("Package Expiration Cron: Failed to send trial end email to " . $package['email'] . " - " . $e->getMessage());
+        return false;
+    }
 }

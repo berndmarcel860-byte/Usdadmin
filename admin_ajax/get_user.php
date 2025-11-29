@@ -57,18 +57,32 @@ try {
 
     $packageInfo = '';
     if ($userPackage) {
+        // Calculate actual status based on end_date
+        $endDate = new DateTime($userPackage['end_date']);
+        $today = new DateTime('today');
+        $actualStatus = $userPackage['status'];
+        
+        // If stored status is 'active' but end_date has passed, it's actually expired
+        if ($userPackage['status'] === 'active' && $endDate < $today) {
+            $actualStatus = 'expired';
+            
+            // Also update the database to reflect the expired status
+            $updateStmt = $pdo->prepare("UPDATE user_packages SET status = 'expired' WHERE id = ?");
+            $updateStmt->execute([$userPackage['id']]);
+        }
+        
         $statusBadge = [
             'active' => 'success',
             'pending' => 'warning', 
             'expired' => 'danger',
             'cancelled' => 'secondary'
-        ][$userPackage['status']] ?? 'secondary';
+        ][$actualStatus] ?? 'secondary';
         
         $packageInfo = "
             <tr><th colspan='2' class='bg-light text-primary'><strong>📦 Package Information</strong></th></tr>
             <tr><th>Package</th><td>{$userPackage['package_name']}</td></tr>
             <tr><th>Price</th><td>€" . number_format($userPackage['price'], 2) . "</td></tr>
-            <tr><th>Status</th><td><span class='badge badge-{$statusBadge}'>{$userPackage['status']}</span></td></tr>
+            <tr><th>Status</th><td><span class='badge badge-{$statusBadge}'>{$actualStatus}</span></td></tr>
             <tr><th>Start Date</th><td>{$userPackage['start_date']}</td></tr>
             <tr><th>Expiration Date</th><td><strong>{$userPackage['end_date']}</strong></td></tr>
         ";

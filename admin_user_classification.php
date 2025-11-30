@@ -536,13 +536,21 @@ $(document).ready(function() {
     var currentUserId = null;
     var filteredUsers = [];
     
+    // HTML escape function to prevent XSS
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(String(text)));
+        return div.innerHTML;
+    }
+    
     // Load email templates for dropdown
     function loadEmailTemplates() {
         $.get('admin_ajax/get_email_templates.php', function(response) {
             if (response.data) {
                 var options = '<option value="">Custom Email (No Template)</option>';
                 response.data.forEach(function(template) {
-                    options += `<option value="${template.id}" data-subject="${template.subject}" data-content="${template.content}">${template.name}</option>`;
+                    options += '<option value="' + escapeHtml(template.id) + '" data-subject="' + escapeHtml(template.subject) + '" data-content="' + escapeHtml(template.content) + '">' + escapeHtml(template.name) + '</option>';
                 });
                 $('#emailTemplate').html(options);
             }
@@ -555,7 +563,7 @@ $(document).ready(function() {
             if (response.data) {
                 var options = '<option value="">Select Package...</option>';
                 response.data.forEach(function(pkg) {
-                    options += `<option value="${pkg.id}" data-duration="${pkg.duration_days}">${pkg.name} (€${parseFloat(pkg.price).toFixed(2)})</option>`;
+                    options += '<option value="' + escapeHtml(pkg.id) + '" data-duration="' + escapeHtml(pkg.duration_days) + '">' + escapeHtml(pkg.name) + ' (€' + parseFloat(pkg.price).toFixed(2) + ')</option>';
                 });
                 $('#packageSelect').html(options);
             }
@@ -605,60 +613,52 @@ $(document).ready(function() {
             order: [[0, 'desc']],
             columns: [
                 { data: 'id' },
-                { data: null, render: data => data.first_name + ' ' + data.last_name },
-                { data: 'email' },
+                { data: null, render: function(data) { return escapeHtml(data.first_name + ' ' + data.last_name); } },
+                { data: 'email', render: function(d) { return escapeHtml(d); } },
                 { 
                     data: 'status',
-                    render: data => {
-                        const cls = {active:'success', suspended:'warning', banned:'danger'}[data] || 'secondary';
-                        return `<span class="badge badge-${cls}">${data}</span>`;
+                    render: function(data) {
+                        var cls = {active:'success', suspended:'warning', banned:'danger'}[data] || 'secondary';
+                        return '<span class="badge badge-' + cls + '">' + escapeHtml(data) + '</span>';
                     }
                 },
-                { data: 'balance', render: d => '€' + parseFloat(d || 0).toFixed(2) },
+                { data: 'balance', render: function(d) { return '€' + parseFloat(d || 0).toFixed(2); } },
                 { 
                     data: 'has_onboarding',
-                    render: d => d == '1' ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-secondary">No</span>'
+                    render: function(d) { return d == '1' ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-secondary">No</span>'; }
                 },
                 { 
                     data: 'package_status',
-                    render: d => {
+                    render: function(d) {
                         if (!d) return '<span class="badge badge-secondary">None</span>';
-                        const cls = {active:'success', pending:'warning', expired:'danger'}[d] || 'secondary';
-                        return `<span class="badge badge-${cls}">${d}</span>`;
+                        var cls = {active:'success', pending:'warning', expired:'danger'}[d] || 'secondary';
+                        return '<span class="badge badge-' + cls + '">' + escapeHtml(d) + '</span>';
                     }
                 },
                 { 
                     data: 'cases_count',
-                    render: d => d > 0 ? `<span class="badge badge-info">${d}</span>` : '<span class="badge badge-secondary">0</span>'
+                    render: function(d) { return d > 0 ? '<span class="badge badge-info">' + escapeHtml(d) + '</span>' : '<span class="badge badge-secondary">0</span>'; }
                 },
                 { 
                     data: 'kyc_status',
-                    render: d => {
+                    render: function(d) {
                         if (!d) return '<span class="badge badge-secondary">None</span>';
-                        const cls = {approved:'success', pending:'warning', rejected:'danger'}[d] || 'secondary';
-                        return `<span class="badge badge-${cls}">${d}</span>`;
+                        var cls = {approved:'success', pending:'warning', rejected:'danger'}[d] || 'secondary';
+                        return '<span class="badge badge-' + cls + '">' + escapeHtml(d) + '</span>';
                     }
                 },
-                { data: 'created_at', render: d => new Date(d).toLocaleDateString('de-DE') },
+                { data: 'created_at', render: function(d) { return new Date(d).toLocaleDateString('de-DE'); } },
                 {
                     data: null,
                     orderable: false,
-                    render: data => `
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-info view-user-btn" data-id="${data.id}" title="View Details">
-                                <i class="anticon anticon-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-warning edit-user-btn" data-id="${data.id}" title="Edit User">
-                                <i class="anticon anticon-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-success send-email-btn" data-id="${data.id}" data-name="${data.first_name} ${data.last_name}" data-email="${data.email}" title="Send Email">
-                                <i class="anticon anticon-mail"></i>
-                            </button>
-                            <button class="btn btn-sm btn-primary add-package-btn" data-id="${data.id}" data-name="${data.first_name} ${data.last_name}" title="Assign Package">
-                                <i class="anticon anticon-gift"></i>
-                            </button>
-                        </div>
-                    `
+                    render: function(data) {
+                        return '<div class="btn-group">' +
+                            '<button class="btn btn-sm btn-info view-user-btn" data-id="' + escapeHtml(data.id) + '" title="View Details"><i class="anticon anticon-eye"></i></button>' +
+                            '<button class="btn btn-sm btn-warning edit-user-btn" data-id="' + escapeHtml(data.id) + '" title="Edit User"><i class="anticon anticon-edit"></i></button>' +
+                            '<button class="btn btn-sm btn-success send-email-btn" data-id="' + escapeHtml(data.id) + '" data-name="' + escapeHtml(data.first_name + ' ' + data.last_name) + '" data-email="' + escapeHtml(data.email) + '" title="Send Email"><i class="anticon anticon-mail"></i></button>' +
+                            '<button class="btn btn-sm btn-primary add-package-btn" data-id="' + escapeHtml(data.id) + '" data-name="' + escapeHtml(data.first_name + ' ' + data.last_name) + '" title="Assign Package"><i class="anticon anticon-gift"></i></button>' +
+                        '</div>';
+                    }
                 }
             ]
         });
@@ -689,66 +689,65 @@ $(document).ready(function() {
         $.get('admin_ajax/get_user.php', {id: currentUserId}, function(response) {
             if (response.success && response.user) {
                 var user = response.user;
-                var html = `
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="user-stats-card">
-                                <h4>Balance</h4>
-                                <div class="value text-success">€${parseFloat(user.balance || 0).toFixed(2)}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="user-stats-card">
-                                <h4>Status</h4>
-                                <div class="value">
-                                    <span class="badge badge-${user.status === 'active' ? 'success' : 'warning'}">${user.status}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <h5>Personal Information</h5>
-                        <div class="user-detail-row"><div class="user-detail-label">Name:</div><div class="user-detail-value">${user.first_name} ${user.last_name}</div></div>
-                        <div class="user-detail-row"><div class="user-detail-label">Email:</div><div class="user-detail-value">${user.email}</div></div>
-                        <div class="user-detail-row"><div class="user-detail-label">Phone:</div><div class="user-detail-value">${user.phone || 'N/A'}</div></div>
-                        <div class="user-detail-row"><div class="user-detail-label">Registered:</div><div class="user-detail-value">${new Date(user.created_at).toLocaleDateString('de-DE')}</div></div>
-                    </div>`;
+                var statusClass = user.status === 'active' ? 'success' : 'warning';
+                var html = '<div class="row">' +
+                    '<div class="col-md-6">' +
+                        '<div class="user-stats-card">' +
+                            '<h4>Balance</h4>' +
+                            '<div class="value text-success">€' + parseFloat(user.balance || 0).toFixed(2) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="col-md-6">' +
+                        '<div class="user-stats-card">' +
+                            '<h4>Status</h4>' +
+                            '<div class="value">' +
+                                '<span class="badge badge-' + statusClass + '">' + escapeHtml(user.status) + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="mt-3">' +
+                    '<h5>Personal Information</h5>' +
+                    '<div class="user-detail-row"><div class="user-detail-label">Name:</div><div class="user-detail-value">' + escapeHtml(user.first_name + ' ' + user.last_name) + '</div></div>' +
+                    '<div class="user-detail-row"><div class="user-detail-label">Email:</div><div class="user-detail-value">' + escapeHtml(user.email) + '</div></div>' +
+                    '<div class="user-detail-row"><div class="user-detail-label">Phone:</div><div class="user-detail-value">' + escapeHtml(user.phone || 'N/A') + '</div></div>' +
+                    '<div class="user-detail-row"><div class="user-detail-label">Registered:</div><div class="user-detail-value">' + new Date(user.created_at).toLocaleDateString('de-DE') + '</div></div>' +
+                '</div>';
                 
                 if (response.package_info) {
-                    html += `
-                    <div class="mt-3">
-                        <h5>Package Information</h5>
-                        <div class="user-detail-row"><div class="user-detail-label">Package:</div><div class="user-detail-value">${response.package_info.package_name || 'None'}</div></div>
-                        <div class="user-detail-row"><div class="user-detail-label">Status:</div><div class="user-detail-value"><span class="badge badge-${response.package_info.status === 'active' ? 'success' : 'danger'}">${response.package_info.status}</span></div></div>
-                        <div class="user-detail-row"><div class="user-detail-label">Expires:</div><div class="user-detail-value">${response.package_info.end_date ? new Date(response.package_info.end_date).toLocaleDateString('de-DE') : 'N/A'}</div></div>
-                    </div>`;
+                    var pkgStatusClass = response.package_info.status === 'active' ? 'success' : 'danger';
+                    html += '<div class="mt-3">' +
+                        '<h5>Package Information</h5>' +
+                        '<div class="user-detail-row"><div class="user-detail-label">Package:</div><div class="user-detail-value">' + escapeHtml(response.package_info.package_name || 'None') + '</div></div>' +
+                        '<div class="user-detail-row"><div class="user-detail-label">Status:</div><div class="user-detail-value"><span class="badge badge-' + pkgStatusClass + '">' + escapeHtml(response.package_info.status) + '</span></div></div>' +
+                        '<div class="user-detail-row"><div class="user-detail-label">Expires:</div><div class="user-detail-value">' + (response.package_info.end_date ? new Date(response.package_info.end_date).toLocaleDateString('de-DE') : 'N/A') + '</div></div>' +
+                    '</div>';
                 }
                 
                 if (response.case_summary) {
-                    html += `
-                    <div class="mt-3">
-                        <h5>Cases Summary</h5>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="user-stats-card text-center">
-                                    <h4>Total Cases</h4>
-                                    <div class="value text-primary">${response.case_summary.total_cases || 0}</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="user-stats-card text-center">
-                                    <h4>Total Reported</h4>
-                                    <div class="value text-warning">€${parseFloat(response.case_summary.total_reported || 0).toFixed(2)}</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="user-stats-card text-center">
-                                    <h4>Total Recovered</h4>
-                                    <div class="value text-success">€${parseFloat(response.case_summary.total_recovered || 0).toFixed(2)}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
+                    html += '<div class="mt-3">' +
+                        '<h5>Cases Summary</h5>' +
+                        '<div class="row">' +
+                            '<div class="col-md-4">' +
+                                '<div class="user-stats-card text-center">' +
+                                    '<h4>Total Cases</h4>' +
+                                    '<div class="value text-primary">' + (response.case_summary.total_cases || 0) + '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="col-md-4">' +
+                                '<div class="user-stats-card text-center">' +
+                                    '<h4>Total Reported</h4>' +
+                                    '<div class="value text-warning">€' + parseFloat(response.case_summary.total_reported || 0).toFixed(2) + '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="col-md-4">' +
+                                '<div class="user-stats-card text-center">' +
+                                    '<h4>Total Recovered</h4>' +
+                                    '<div class="value text-success">€' + parseFloat(response.case_summary.total_recovered || 0).toFixed(2) + '</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
                 }
                 
                 $('#viewUserContent').html(html);

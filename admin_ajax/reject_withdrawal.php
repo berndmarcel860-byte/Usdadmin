@@ -195,22 +195,22 @@ function sendWithdrawalRejectionEmail($pdo, $user, $templateKey, $withdrawal, $r
 
         // === Template variables
         $vars = [
-            '{first_name}'         => $user['first_name'] ?? '',
-            '{last_name}'          => $user['last_name'] ?? '',
+            '{first_name}'         => htmlspecialchars($user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'),
+            '{last_name}'          => htmlspecialchars($user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'),
             '{amount}'             => number_format($withdrawal['amount'], 2) . ' €',
-            '{reason}'             => $reason,
-            '{payment_method}'     => $methodName,
-            '{payment_details}'    => $withdrawal['payment_details'] ?? '',
-            '{reference}'          => $withdrawal['reference'] ?? 'WD-' . $withdrawal['id'],
-            '{transaction_id}'     => $withdrawal['reference'] ?? 'WD-' . $withdrawal['id'],
+            '{reason}'             => htmlspecialchars($reason, ENT_QUOTES, 'UTF-8'),
+            '{payment_method}'     => htmlspecialchars($methodName, ENT_QUOTES, 'UTF-8'),
+            '{payment_details}'    => htmlspecialchars($withdrawal['payment_details'] ?? '', ENT_QUOTES, 'UTF-8'),
+            '{reference}'          => htmlspecialchars($withdrawal['reference'] ?? 'WD-' . $withdrawal['id'], ENT_QUOTES, 'UTF-8'),
+            '{transaction_id}'     => htmlspecialchars($withdrawal['reference'] ?? 'WD-' . $withdrawal['id'], ENT_QUOTES, 'UTF-8'),
             '{transaction_date}'   => date('Y-m-d H:i:s'),
             '{balance}'            => number_format($user['balance'] ?? 0, 2) . ' €',
             '{site_url}'           => $sys['site_url'] ?? 'https://kryptox.co.uk',
-            '{site_name}'          => $sys['site_name'] ?? 'KryptoX',
+            '{site_name}'          => htmlspecialchars($sys['site_name'] ?? 'KryptoX', ENT_QUOTES, 'UTF-8'),
             '{surl}'               => $sys['site_url'] ?? 'https://kryptox.co.uk',
-            '{sbrand}'             => $sys['site_name'] ?? 'KryptoX',
-            '{semail}'             => $sys['contact_email'] ?? 'info@kryptox.co.uk',
-            '{sphone}'             => $sys['contact_phone'] ?? ''
+            '{sbrand}'             => htmlspecialchars($sys['site_name'] ?? 'KryptoX', ENT_QUOTES, 'UTF-8'),
+            '{semail}'             => htmlspecialchars($sys['contact_email'] ?? 'info@kryptox.co.uk', ENT_QUOTES, 'UTF-8'),
+            '{sphone}'             => htmlspecialchars($sys['contact_phone'] ?? '', ENT_QUOTES, 'UTF-8')
         ];
 
         $subject  = strtr($template['subject'], $vars);

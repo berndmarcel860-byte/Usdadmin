@@ -18,7 +18,7 @@ try {
     // --------------------------------
     // 🧑 Basic Info
     // --------------------------------
-    $stmt = $pdo->prepare("SELECT id, first_name, last_name, email, status, balance, created_at 
+    $stmt = $pdo->prepare("SELECT id, first_name, last_name, email, phone, status, balance, created_at 
                            FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -279,8 +279,45 @@ try {
     // --------------------------------
     // ✅ Final Response
     // --------------------------------
+    
+    // Build package_info for classification page modal
+    $packageInfoData = null;
+    if ($userPackage) {
+        // Calculate actual status based on end_date
+        $endDate = new DateTime($userPackage['end_date']);
+        $today = new DateTime('today');
+        $actualStatus = $userPackage['status'];
+        if ($userPackage['status'] === 'active' && $endDate < $today) {
+            $actualStatus = 'expired';
+        }
+        
+        $packageInfoData = [
+            'package_name' => $userPackage['package_name'],
+            'price' => $userPackage['price'],
+            'status' => $actualStatus,
+            'start_date' => $userPackage['start_date'],
+            'end_date' => $userPackage['end_date'],
+            'duration_days' => $userPackage['duration_days']
+        ];
+    }
+    
+    // Build case_summary for classification page modal
+    $caseSummary = [
+        'total_cases' => $caseStats['total_cases'],
+        'processing' => $caseStats['processing'],
+        'approved' => $caseStats['approved'],
+        'closed' => $caseStats['closed'],
+        'total_reported' => $caseStats['total_reported'],
+        'total_recovered' => $caseStats['total_recovered']
+    ];
+    
     echo json_encode([
         'success' => true,
+        // Raw data for classification page modals
+        'user' => $user,
+        'package_info' => $packageInfoData,
+        'case_summary' => $caseSummary,
+        // HTML for admin_users.php modal
         'html' => [
             'basic' => $basicHTML,
             'onboarding' => $onboardingHTML,

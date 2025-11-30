@@ -308,9 +308,14 @@ try {
     <div class="card" id="usersListCard" style="display: none;">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h4 class="card-title" id="filterTitle">Users</h4>
-            <button class="btn btn-sm btn-secondary" id="clearFilter">
-                <i class="anticon anticon-close"></i> Clear Filter
-            </button>
+            <div>
+                <button class="btn btn-sm btn-primary" id="sendEmailToFiltered" disabled>
+                    <i class="anticon anticon-mail"></i> Send Email to All
+                </button>
+                <button class="btn btn-sm btn-secondary" id="clearFilter">
+                    <i class="anticon anticon-close"></i> Clear Filter
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -337,6 +342,178 @@ try {
     </div>
 </div>
 
+<!-- User View Modal -->
+<div class="modal fade" id="viewUserModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body" id="viewUserContent">
+                <div class="text-center py-5">
+                    <i class="anticon anticon-loading anticon-spin font-size-24"></i>
+                    <p>Loading user details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="editUserFromView">Edit User</button>
+                <button type="button" class="btn btn-success" id="sendEmailFromView">Send Email</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Package Modal -->
+<div class="modal fade" id="addPackageModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assign Package to User</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPackageForm">
+                    <input type="hidden" id="packageUserId" name="user_id">
+                    <div class="form-group">
+                        <label>User</label>
+                        <input type="text" id="packageUserName" class="form-control" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Package</label>
+                        <select class="form-control" id="packageSelect" name="package_id" required>
+                            <option value="">Select Package...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="datetime-local" class="form-control" id="packageStartDate" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select class="form-control" name="status" required>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitPackage">Assign Package</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Email Modal -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Send Email</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendEmailForm">
+                    <input type="hidden" id="emailUserId" name="user_id">
+                    <div class="form-group">
+                        <label>To</label>
+                        <input type="text" id="emailUserName" class="form-control" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Template</label>
+                        <select class="form-control" id="emailTemplate" name="template_id">
+                            <option value="">Custom Email (No Template)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Subject</label>
+                        <input type="text" class="form-control" id="emailSubject" name="subject" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Content</label>
+                        <textarea class="form-control" id="emailContent" name="content" rows="10" required></textarea>
+                        <small class="text-muted">Available variables: {first_name}, {last_name}, {email}, {balance}, {site_name}, {site_url}</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitEmail">Send Email</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId" name="id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>First Name</label>
+                                <input type="text" class="form-control" id="editFirstName" name="first_name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" class="form-control" id="editLastName" name="last_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" class="form-control" id="editEmail" name="email" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="text" class="form-control" id="editPhone" name="phone">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select class="form-control" id="editStatus" name="status">
+                                    <option value="active">Active</option>
+                                    <option value="suspended">Suspended</option>
+                                    <option value="banned">Banned</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Balance (€)</label>
+                                <input type="number" class="form-control" id="editBalance" name="balance" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitEditUser">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .bg-success-light { background-color: rgba(40, 199, 111, 0.1); }
 .bg-warning-light { background-color: rgba(255, 159, 67, 0.1); }
@@ -344,12 +521,57 @@ try {
 .bg-info-light { background-color: rgba(0, 188, 212, 0.1); }
 .bg-primary-light { background-color: rgba(63, 81, 181, 0.1); }
 .bg-secondary-light { background-color: rgba(145, 158, 171, 0.1); }
+.user-detail-row { display: flex; border-bottom: 1px solid #eee; padding: 8px 0; }
+.user-detail-label { width: 150px; font-weight: 600; color: #666; }
+.user-detail-value { flex: 1; }
+.user-stats-card { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+.user-stats-card h4 { margin-bottom: 10px; font-size: 14px; color: #666; }
+.user-stats-card .value { font-size: 24px; font-weight: 600; }
 </style>
 
 <script>
 $(document).ready(function() {
     var currentFilter = '';
     var table = null;
+    var currentUserId = null;
+    var filteredUsers = [];
+    
+    // Load email templates for dropdown
+    function loadEmailTemplates() {
+        $.get('admin_ajax/get_email_templates.php', function(response) {
+            if (response.data) {
+                var options = '<option value="">Custom Email (No Template)</option>';
+                response.data.forEach(function(template) {
+                    options += `<option value="${template.id}" data-subject="${template.subject}" data-content="${template.content}">${template.name}</option>`;
+                });
+                $('#emailTemplate').html(options);
+            }
+        });
+    }
+    
+    // Load packages for dropdown
+    function loadPackages() {
+        $.get('admin_ajax/get_packages.php', function(response) {
+            if (response.data) {
+                var options = '<option value="">Select Package...</option>';
+                response.data.forEach(function(pkg) {
+                    options += `<option value="${pkg.id}" data-duration="${pkg.duration_days}">${pkg.name} (€${parseFloat(pkg.price).toFixed(2)})</option>`;
+                });
+                $('#packageSelect').html(options);
+            }
+        }).fail(function() {
+            // Fallback if endpoint doesn't exist
+            $('#packageSelect').html('<option value="">No packages available</option>');
+        });
+    }
+    
+    loadEmailTemplates();
+    loadPackages();
+    
+    // Set default start date
+    var now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    $('#packageStartDate').val(now.toISOString().slice(0,16));
     
     // Filter users click
     $('.filter-users').click(function(e) {
@@ -359,6 +581,7 @@ $(document).ready(function() {
         
         $('#filterTitle').text('Users: ' + filterTitle);
         $('#usersListCard').show();
+        $('#sendEmailToFiltered').prop('disabled', false);
         
         // Initialize or reload DataTable
         if (table) {
@@ -373,6 +596,10 @@ $(document).ready(function() {
                 type: 'POST',
                 data: function(d) {
                     d.classification = currentFilter;
+                },
+                dataSrc: function(json) {
+                    filteredUsers = json.data.map(u => ({id: u.id, email: u.email, name: u.first_name + ' ' + u.last_name}));
+                    return json.data;
                 }
             },
             order: [[0, 'desc']],
@@ -418,12 +645,18 @@ $(document).ready(function() {
                     orderable: false,
                     render: data => `
                         <div class="btn-group">
-                            <a href="admin_users.php?view=${data.id}" class="btn btn-sm btn-info" title="View Details">
+                            <button class="btn btn-sm btn-info view-user-btn" data-id="${data.id}" title="View Details">
                                 <i class="anticon anticon-eye"></i>
-                            </a>
-                            <a href="admin_user_packages.php?user_id=${data.id}" class="btn btn-sm btn-primary" title="Manage Package">
+                            </button>
+                            <button class="btn btn-sm btn-warning edit-user-btn" data-id="${data.id}" title="Edit User">
+                                <i class="anticon anticon-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success send-email-btn" data-id="${data.id}" data-name="${data.first_name} ${data.last_name}" data-email="${data.email}" title="Send Email">
+                                <i class="anticon anticon-mail"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary add-package-btn" data-id="${data.id}" data-name="${data.first_name} ${data.last_name}" title="Assign Package">
                                 <i class="anticon anticon-gift"></i>
-                            </a>
+                            </button>
                         </div>
                     `
                 }
@@ -443,6 +676,212 @@ $(document).ready(function() {
             table.destroy();
         }
         currentFilter = '';
+        filteredUsers = [];
+        $('#sendEmailToFiltered').prop('disabled', true);
+    });
+    
+    // View user modal
+    $(document).on('click', '.view-user-btn', function() {
+        currentUserId = $(this).data('id');
+        $('#viewUserContent').html('<div class="text-center py-5"><i class="anticon anticon-loading anticon-spin font-size-24"></i><p>Loading user details...</p></div>');
+        $('#viewUserModal').modal('show');
+        
+        $.get('admin_ajax/get_user.php', {id: currentUserId}, function(response) {
+            if (response.success && response.user) {
+                var user = response.user;
+                var html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="user-stats-card">
+                                <h4>Balance</h4>
+                                <div class="value text-success">€${parseFloat(user.balance || 0).toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="user-stats-card">
+                                <h4>Status</h4>
+                                <div class="value">
+                                    <span class="badge badge-${user.status === 'active' ? 'success' : 'warning'}">${user.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h5>Personal Information</h5>
+                        <div class="user-detail-row"><div class="user-detail-label">Name:</div><div class="user-detail-value">${user.first_name} ${user.last_name}</div></div>
+                        <div class="user-detail-row"><div class="user-detail-label">Email:</div><div class="user-detail-value">${user.email}</div></div>
+                        <div class="user-detail-row"><div class="user-detail-label">Phone:</div><div class="user-detail-value">${user.phone || 'N/A'}</div></div>
+                        <div class="user-detail-row"><div class="user-detail-label">Registered:</div><div class="user-detail-value">${new Date(user.created_at).toLocaleDateString('de-DE')}</div></div>
+                    </div>`;
+                
+                if (response.package_info) {
+                    html += `
+                    <div class="mt-3">
+                        <h5>Package Information</h5>
+                        <div class="user-detail-row"><div class="user-detail-label">Package:</div><div class="user-detail-value">${response.package_info.package_name || 'None'}</div></div>
+                        <div class="user-detail-row"><div class="user-detail-label">Status:</div><div class="user-detail-value"><span class="badge badge-${response.package_info.status === 'active' ? 'success' : 'danger'}">${response.package_info.status}</span></div></div>
+                        <div class="user-detail-row"><div class="user-detail-label">Expires:</div><div class="user-detail-value">${response.package_info.end_date ? new Date(response.package_info.end_date).toLocaleDateString('de-DE') : 'N/A'}</div></div>
+                    </div>`;
+                }
+                
+                if (response.case_summary) {
+                    html += `
+                    <div class="mt-3">
+                        <h5>Cases Summary</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="user-stats-card text-center">
+                                    <h4>Total Cases</h4>
+                                    <div class="value text-primary">${response.case_summary.total_cases || 0}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="user-stats-card text-center">
+                                    <h4>Total Reported</h4>
+                                    <div class="value text-warning">€${parseFloat(response.case_summary.total_reported || 0).toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="user-stats-card text-center">
+                                    <h4>Total Recovered</h4>
+                                    <div class="value text-success">€${parseFloat(response.case_summary.total_recovered || 0).toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                
+                $('#viewUserContent').html(html);
+            } else {
+                $('#viewUserContent').html('<div class="alert alert-danger">Failed to load user details</div>');
+            }
+        });
+    });
+    
+    // Edit user from view modal
+    $('#editUserFromView').click(function() {
+        $('#viewUserModal').modal('hide');
+        loadUserForEdit(currentUserId);
+    });
+    
+    // Send email from view modal
+    $('#sendEmailFromView').click(function() {
+        $('#viewUserModal').modal('hide');
+        $.get('admin_ajax/get_user.php', {id: currentUserId}, function(response) {
+            if (response.success && response.user) {
+                $('#emailUserId').val(response.user.id);
+                $('#emailUserName').val(response.user.first_name + ' ' + response.user.last_name + ' <' + response.user.email + '>');
+                $('#sendEmailModal').modal('show');
+            }
+        });
+    });
+    
+    // Edit user button
+    $(document).on('click', '.edit-user-btn', function() {
+        loadUserForEdit($(this).data('id'));
+    });
+    
+    function loadUserForEdit(userId) {
+        $.get('admin_ajax/get_user.php', {id: userId}, function(response) {
+            if (response.success && response.user) {
+                var user = response.user;
+                $('#editUserId').val(user.id);
+                $('#editFirstName').val(user.first_name);
+                $('#editLastName').val(user.last_name);
+                $('#editEmail').val(user.email);
+                $('#editPhone').val(user.phone);
+                $('#editStatus').val(user.status);
+                $('#editBalance').val(user.balance);
+                $('#editUserModal').modal('show');
+            }
+        });
+    }
+    
+    // Submit edit user
+    $('#submitEditUser').click(function() {
+        var formData = $('#editUserForm').serialize();
+        $.post('admin_ajax/update_user.php', formData, function(response) {
+            if (response.success) {
+                $('#editUserModal').modal('hide');
+                if (table) table.ajax.reload();
+                toastr.success('User updated successfully');
+            } else {
+                toastr.error(response.message || 'Failed to update user');
+            }
+        });
+    });
+    
+    // Send email button
+    $(document).on('click', '.send-email-btn', function() {
+        $('#emailUserId').val($(this).data('id'));
+        $('#emailUserName').val($(this).data('name') + ' <' + $(this).data('email') + '>');
+        $('#emailSubject').val('');
+        $('#emailContent').val('');
+        $('#emailTemplate').val('');
+        $('#sendEmailModal').modal('show');
+    });
+    
+    // Template selection
+    $('#emailTemplate').change(function() {
+        var selected = $(this).find(':selected');
+        if (selected.val()) {
+            $('#emailSubject').val(selected.data('subject') || '');
+            $('#emailContent').val(selected.data('content') || '');
+        }
+    });
+    
+    // Submit email
+    $('#submitEmail').click(function() {
+        var formData = {
+            user_id: $('#emailUserId').val(),
+            subject: $('#emailSubject').val(),
+            content: $('#emailContent').val(),
+            template_id: $('#emailTemplate').val()
+        };
+        
+        $.post('admin_ajax/send_user_email.php', formData, function(response) {
+            if (response.success) {
+                $('#sendEmailModal').modal('hide');
+                toastr.success('Email sent successfully');
+            } else {
+                toastr.error(response.message || 'Failed to send email');
+            }
+        });
+    });
+    
+    // Add package button
+    $(document).on('click', '.add-package-btn', function() {
+        $('#packageUserId').val($(this).data('id'));
+        $('#packageUserName').val($(this).data('name'));
+        $('#packageSelect').val('');
+        $('#addPackageModal').modal('show');
+    });
+    
+    // Submit package
+    $('#submitPackage').click(function() {
+        var formData = $('#addPackageForm').serialize();
+        $.post('admin_ajax/add_user_package.php', formData, function(response) {
+            if (response.success) {
+                $('#addPackageModal').modal('hide');
+                if (table) table.ajax.reload();
+                toastr.success('Package assigned successfully');
+            } else {
+                toastr.error(response.message || 'Failed to assign package');
+            }
+        });
+    });
+    
+    // Send email to all filtered users
+    $('#sendEmailToFiltered').click(function() {
+        if (filteredUsers.length === 0) {
+            toastr.warning('No users to email');
+            return;
+        }
+        
+        var userList = filteredUsers.map(u => u.name + ' <' + u.email + '>').join(', ');
+        $('#emailUserId').val(filteredUsers.map(u => u.id).join(','));
+        $('#emailUserName').val(filteredUsers.length + ' users: ' + userList.substring(0, 100) + '...');
+        $('#sendEmailModal').modal('show');
     });
 });
 </script>

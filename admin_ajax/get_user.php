@@ -2,11 +2,13 @@
 // =======================================================
 // 🔍 get_user.php — fetch full user details for admin modal
 // =======================================================
-require_once '../../config.php';
+require_once '../admin_session.php';
 header('Content-Type: application/json; charset=utf-8');
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
+// Only enable error display during development
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 
 try {
     if (empty($_GET['id']) || !ctype_digit($_GET['id'])) {

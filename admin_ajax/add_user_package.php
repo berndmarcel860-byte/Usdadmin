@@ -52,9 +52,14 @@ try {
     
     // Calculate end_date if not provided
     if (empty($endDate) && $package['duration_days'] > 0) {
-        $startDateTime = new DateTime($startDate);
-        $startDateTime->modify('+' . $package['duration_days'] . ' days');
-        $endDate = $startDateTime->format('Y-m-d H:i:s');
+        try {
+            $startDateTime = new DateTime($startDate);
+            $startDateTime->modify('+' . (int)$package['duration_days'] . ' days');
+            $endDate = $startDateTime->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Invalid start date format']);
+            exit();
+        }
     }
     
     // Insert new assignment

@@ -592,9 +592,16 @@ $(document).ready(function() {
         var startDate = $('#packageStartDate').val();
         
         if (duration && startDate) {
+            var durationDays = parseInt(duration);
+            if (isNaN(durationDays) || durationDays <= 0) return;
+            
             var start = new Date(startDate);
-            start.setDate(start.getDate() + parseInt(duration));
-            $('#packageEndDate').val(start.toISOString().slice(0,16));
+            if (isNaN(start.getTime())) return;
+            
+            // Add days using milliseconds for accurate calculation
+            var endTime = start.getTime() + (durationDays * 24 * 60 * 60 * 1000);
+            var end = new Date(endTime);
+            $('#packageEndDate').val(end.toISOString().slice(0,16));
         }
     }
     

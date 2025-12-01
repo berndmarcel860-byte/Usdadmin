@@ -10,8 +10,8 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 
-// Validate required fields
-$required = ['user_id', 'package_id', 'start_date', 'end_date', 'status'];
+// Validate required fields - end_date is optional (will be calculated from package duration)
+$required = ['user_id', 'package_id', 'start_date', 'status'];
 foreach ($required as $field) {
     if (empty($_POST[$field])) {
         echo json_encode(['success' => false, 'message' => "Missing required field: $field"]);
@@ -22,7 +22,7 @@ foreach ($required as $field) {
 $userId = (int)$_POST['user_id'];
 $packageId = (int)$_POST['package_id'];
 $startDate = $_POST['start_date'];
-$endDate = $_POST['end_date'];
+$endDate = isset($_POST['end_date']) && !empty($_POST['end_date']) ? $_POST['end_date'] : null;
 $status = $_POST['status'];
 
 // Validate status
@@ -41,12 +41,20 @@ try {
         exit();
     }
     
-    // Verify package exists
-    $stmt = $pdo->prepare("SELECT id FROM packages WHERE id = ?");
+    // Verify package exists and get duration
+    $stmt = $pdo->prepare("SELECT id, duration_days FROM packages WHERE id = ?");
     $stmt->execute([$packageId]);
-    if (!$stmt->fetch()) {
+    $package = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$package) {
         echo json_encode(['success' => false, 'message' => 'Package not found']);
         exit();
+    }
+    
+    // Calculate end_date if not provided
+    if (empty($endDate) && $package['duration_days'] > 0) {
+        $startDateTime = new DateTime($startDate);
+        $startDateTime->modify('+' . $package['duration_days'] . ' days');
+        $endDate = $startDateTime->format('Y-m-d H:i:s');
     }
     
     // Insert new assignment

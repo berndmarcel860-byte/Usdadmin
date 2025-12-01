@@ -391,6 +391,10 @@ try {
                         <input type="datetime-local" class="form-control" id="packageStartDate" name="start_date" required>
                     </div>
                     <div class="form-group">
+                        <label>End Date (auto-calculated from package duration)</label>
+                        <input type="datetime-local" class="form-control" id="packageEndDate" name="end_date">
+                    </div>
+                    <div class="form-group">
                         <label>Status</label>
                         <select class="form-control" name="status" required>
                             <option value="active">Active</option>
@@ -580,6 +584,22 @@ $(document).ready(function() {
     var now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     $('#packageStartDate').val(now.toISOString().slice(0,16));
+    
+    // Auto-calculate end date when package or start date changes
+    function calculateEndDate() {
+        var selected = $('#packageSelect').find(':selected');
+        var duration = selected.data('duration');
+        var startDate = $('#packageStartDate').val();
+        
+        if (duration && startDate) {
+            var start = new Date(startDate);
+            start.setDate(start.getDate() + parseInt(duration));
+            $('#packageEndDate').val(start.toISOString().slice(0,16));
+        }
+    }
+    
+    $('#packageSelect').change(calculateEndDate);
+    $('#packageStartDate').change(calculateEndDate);
     
     // Filter users click
     $('.filter-users').click(function(e) {

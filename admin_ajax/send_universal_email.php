@@ -83,17 +83,22 @@ try {
     $subject = str_replace(array_keys($variables), array_values($variables), $subject);
     $message = str_replace(array_keys($variables), array_values($variables), $message);
     
-    // Convert newlines to paragraphs for better formatting
+    // Convert newlines to HTML paragraphs for better formatting
+    // Handle both \r\n (Windows) and \n (Unix) line endings
+    $message = str_replace("\r\n", "\n", $message);
     $messageParagraphs = '';
     $lines = explode("\n", $message);
     foreach ($lines as $line) {
         $line = trim($line);
         if (!empty($line)) {
             $messageParagraphs .= '<p>' . $line . '</p>';
+        } else {
+            // Empty line - add spacing
+            $messageParagraphs .= '<br>';
         }
     }
-    if (empty($messageParagraphs)) {
-        $messageParagraphs = '<p>' . nl2br($message) . '</p>';
+    if (empty(trim($messageParagraphs))) {
+        $messageParagraphs = '<p>' . nl2br(htmlspecialchars($message)) . '</p>';
     }
     
     // Build professional HTML email template (KryptoX Standard)
@@ -286,7 +291,7 @@ try {
     $mail->isHTML(true);
     $mail->Subject = $subject;
     $mail->Body = $htmlContent;
-    $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $messageHtml));
+    $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $message));
     
     $mail->send();
     

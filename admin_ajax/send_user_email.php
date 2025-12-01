@@ -115,7 +115,7 @@ try {
     $useHtmlWrapper = isset($_POST['use_html_wrapper']) && $_POST['use_html_wrapper'] == '1';
     
     if ($useHtmlWrapper) {
-        // Wrap content in professional HTML template
+        // Wrap content in professional HTML template (KryptoX Standard)
         $htmlTemplate = '<!DOCTYPE html>
 <html>
 <head>
@@ -131,6 +131,7 @@ try {
       margin: 0;
       padding: 0;
     }
+
     .container {
       max-width: 640px;
       margin: 30px auto;
@@ -139,6 +140,7 @@ try {
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
       overflow: hidden;
     }
+
     .header {
       background: linear-gradient(90deg, #2950a8 0%, #2da9e3 100%);
       color: #fff;
@@ -150,10 +152,17 @@ try {
       font-size: 26px;
       font-weight: 600;
     }
+    .header p {
+      margin-top: 8px;
+      font-size: 15px;
+      opacity: 0.9;
+    }
+
     .content {
       padding: 25px;
       background: #f9f9f9;
     }
+
     .highlight-box {
       background: linear-gradient(90deg, #007bff10 0%, #007bff05 100%);
       border-left: 5px solid #007bff;
@@ -161,16 +170,25 @@ try {
       border-radius: 6px;
       margin: 20px 0;
     }
+    .highlight-box h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    .highlight-box p {
+      margin: 6px 0;
+    }
+
     .btn {
       display: inline-block;
       background: #007bff;
       color: white;
-      padding: 12px 20px;
+      padding: 10px 18px;
       border-radius: 5px;
       text-decoration: none;
       font-weight: bold;
-      margin: 20px 0;
+      margin-top: 15px;
     }
+
     .signature {
       margin-top: 40px;
       border-top: 1px solid #e0e0e0;
@@ -179,17 +197,48 @@ try {
       color: #555;
       text-align: center;
     }
+
     .signature img {
       height: 50px;
       margin: 0 auto 12px;
       display: block;
     }
+
+    .signature strong {
+      color: #111;
+      font-size: 15px;
+    }
+
+    .signature a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .signature p {
+      font-size: 12px;
+      color: #777;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+
     .footer {
       text-align: center;
       font-size: 12px;
       color: #777;
       padding: 15px;
       background: #f1f3f5;
+    }
+
+    @media only screen and (max-width: 600px) {
+      .container {
+        width: 94%;
+      }
+      .header h1 {
+        font-size: 22px;
+      }
+      .signature img {
+        height: 45px;
+      }
     }
   </style>
 </head>
@@ -202,21 +251,31 @@ try {
     <div class="content">
       <p>Sehr geehrte/r ' . htmlspecialchars($user['first_name']) . ' ' . htmlspecialchars($user['last_name']) . ',</p>
 
-      ' . $content . '
+      <div class="highlight-box">
+        ' . $content . '
+      </div>
+
+      <p><a href="' . htmlspecialchars($variables['site_url']) . '/login.php" class="btn">Zum Kundenportal</a></p>
 
       <p>Mit freundlichen Grüßen,</p>
 
       <div class="signature">
-        <img src="https://kryptox.co.uk/assets/img/logo.png" alt="' . htmlspecialchars($variables['site_name']) . ' Logo"><br>
+        <img src="https://kryptox.co.uk/assets/img/logo.png" alt="KryptoX Logo"><br>
         <strong>' . htmlspecialchars($variables['site_name']) . ' Team</strong><br>
         Davidson House Forbury Square, Reading, RG1 3EU, UNITED KINGDOM<br>
         E: <a href="mailto:' . htmlspecialchars($variables['contact_email']) . '">' . htmlspecialchars($variables['contact_email']) . '</a> | 
         W: <a href="' . htmlspecialchars($variables['site_url']) . '">' . htmlspecialchars($variables['site_url']) . '</a>
+        <p>
+          FCA Reference Nr: 910584<br>
+          <br>
+          <em>Hinweis:</em> Diese E-Mail kann vertrauliche oder rechtlich geschützte Informationen enthalten.  
+          Wenn Sie nicht der richtige Adressat sind, informieren Sie uns bitte und löschen Sie diese Nachricht.
+        </p>
       </div>
     </div>
 
     <div class="footer">
-      © 2025 ' . htmlspecialchars($variables['site_name']) . '. Alle Rechte vorbehalten.
+      © ' . date('Y') . ' ' . htmlspecialchars($variables['site_name']) . '. Alle Rechte vorbehalten.
     </div>
   </div>
 </body>

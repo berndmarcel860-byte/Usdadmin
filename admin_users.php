@@ -131,24 +131,18 @@ require_once 'admin_header.php';
             <input type="text" class="form-control" id="send_mail_recipient" readonly>
           </div>
           <div class="form-group">
-            <label>Email Template</label>
-            <select class="form-control" name="template_id" id="send_mail_template_select">
-              <option value="">Custom Email (No Template)</option>
-            </select>
-            <small class="form-text text-muted">Select a template or compose a custom email</small>
-          </div>
-          <div class="form-group">
             <label>Subject</label>
-            <input type="text" class="form-control" name="subject" id="send_mail_subject" required>
+            <input type="text" class="form-control" name="subject" id="send_mail_subject" placeholder="Enter email subject" required>
           </div>
           <div class="form-group">
             <label>Message</label>
-            <textarea class="form-control" name="content" id="send_mail_content" rows="8" required></textarea>
-            <small class="form-text text-muted">Write your message here. HTML formatting will be applied automatically. You can use variables: {first_name}, {last_name}, {email}, {user_id}, {balance}, {site_url}, etc.</small>
+            <textarea class="form-control" name="message" id="send_mail_content" rows="8" placeholder="Enter your message here. It will be wrapped in a professional HTML template automatically." required></textarea>
+            <small class="form-text text-muted">
+              <strong>Variables available:</strong> {first_name}, {last_name}, {email}, {user_id}, {balance}, {status}, {site_url}, {site_name}, {contact_email}
+            </small>
           </div>
-          <input type="hidden" name="use_html_wrapper" id="use_html_wrapper" value="1">
-          <div id="send_mail_variables" class="alert alert-info" style="display:none;">
-            <strong>Available Variables:</strong> <span id="variable_list"></span>
+          <div class="alert alert-info">
+            <i class="anticon anticon-info-circle"></i> Your message will be automatically wrapped in the professional KryptoX HTML email template with gradient header, signature, and footer.
           </div>
         </div>
         <div class="modal-footer">
@@ -293,78 +287,11 @@ order: [[0,'desc']],
         $('#send_mail_recipient').val(`${window.decodeHtml(userName)} <${window.decodeHtml(userEmail)}>`);
         $('#send_mail_subject').val('');
         $('#send_mail_content').val('');
-        $('#send_mail_variables').hide();
-        
-        // Load email templates if not already loaded
-        if ($('#send_mail_template_select option').length === 1) {
-            $.ajax({
-                url: 'admin_ajax/get_email_templates.php',
-                type: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.data && response.data.length > 0) {
-                        let options = '<option value="">Custom Email (No Template)</option>';
-                        response.data.forEach(template => {
-                            const escapedKey = window.escapeHtml(template.template_key);
-                            const escapedSubject = window.escapeHtml(template.subject);
-                            // Store template data in a separate object instead of data attributes to avoid escaping issues
-                            options += `<option value="${template.id}">${escapedKey} - ${escapedSubject}</option>`;
-                        });
-                        $('#send_mail_template_select').html(options);
-                        // Store templates in a global variable for later access
-                        window.emailTemplatesData = response.data;
-                    }
-                }
-            });
-        }
         
         $('#sendMailModal').modal('show');
     });
     
-    // Template selection handler
-    $('#send_mail_template_select').change(function() {
-        const templateId = $(this).val();
-        
-        if (templateId && window.emailTemplatesData) {
-            // Find the template in the stored data
-            const template = window.emailTemplatesData.find(t => t.id == templateId);
-            
-            if (template) {
-                $('#send_mail_subject').val(template.subject);
-                $('#send_mail_content').val(template.content);
-                $('#use_html_wrapper').val('0'); // Don't wrap template content
-                
-                if (template.variables) {
-                    try {
-                        // Safely parse JSON with validation
-                        const varList = typeof template.variables === 'string' && template.variables.trim().startsWith('[') 
-                            ? JSON.parse(template.variables) 
-                            : template.variables;
-                        const varText = Array.isArray(varList) 
-                            ? varList.map(v => `{${v}}`).join(', ') 
-                            : template.variables;
-                        $('#variable_list').text(varText);
-                        $('#send_mail_variables').show();
-                    } catch(e) {
-                        console.warn('Failed to parse template variables:', e);
-                        $('#send_mail_variables').hide();
-                    }
-                } else {
-                    $('#send_mail_variables').hide();
-                }
-            }
-        } else {
-            // Custom email selected - just show empty message field
-            // HTML wrapper will be applied automatically on the backend
-            $('#send_mail_subject').val('');
-            $('#send_mail_content').val('');
-            $('#use_html_wrapper').val('1');
-            $('#send_mail_variables').show();
-            $('#variable_list').text('{first_name}, {last_name}, {email}, {user_id}, {balance}, {status}, {site_url}, {site_name}, {contact_email}');
-        }
-    });
-    
-    // Send Mail Form Submission
+    // Send Mail Form Submission - Uses Universal Email Sender
     $('#sendMailForm').submit(function(e) {
         e.preventDefault();
         
@@ -373,7 +300,7 @@ order: [[0,'desc']],
         }
         
         $.ajax({
-            url: 'admin_ajax/send_user_email.php',
+            url: 'admin_ajax/send_universal_email.php',
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',

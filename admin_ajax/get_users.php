@@ -4,14 +4,14 @@ require_once '../../config.php';
 #require_once 'admin_auth.php';
 
 $columns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
-$query = "SELECT " . implode(', ', $columns) . " FROM users";
+$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != 'suspended'";
 
 // Search filter
 if (isset($_POST['search']['value'])) {
     $search = $_POST['search']['value'];
-    $query .= " WHERE first_name LIKE '%$search%' 
+    $query .= " AND (first_name LIKE '%$search%' 
                 OR last_name LIKE '%$search%' 
-                OR email LIKE '%$search%'";
+                OR email LIKE '%$search%')";
 }
 
 // Ordering
@@ -34,8 +34,8 @@ $stmt = $pdo->prepare($query);
 $stmt->execute();
 $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Total records
-$totalRecords = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+// Total records (excluding suspended users)
+$totalRecords = $pdo->query("SELECT COUNT(*) FROM users WHERE status != 'suspended'")->fetchColumn();
 $totalFiltered = $totalRecords;
 
 $data = [];

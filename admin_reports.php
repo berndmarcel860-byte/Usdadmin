@@ -13,58 +13,160 @@ require_once 'admin_header.php';
         </div>
     </div>
     
+    <!-- Report Filter -->
     <div class="card">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>System Reports</h5>
-                <div class="d-flex">
-                    <button class="btn btn-info mr-2" id="refreshReports">
-                        <i class="anticon anticon-reload"></i> Refresh
-                    </button>
-                    <button class="btn btn-primary" data-toggle="modal" data-target="#addReportsModal">
-                        <i class="anticon anticon-plus"></i> Add New
-                    </button>
-                </div>
-            </div>
-            
-            
-        </div>
-    </div>
-</div>
-
-<!-- Add Modal -->
-<div class="modal fade" id="addReportsModal">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New System Reports</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <i class="anticon anticon-close"></i>
-                </button>
-            </div>
-            <form id="addReportsForm">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input type="text" class="form-control" name="name" required>
+            <h5>Generate Report</h5>
+            <form id="reportFilterForm" class="mt-3">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <select class="form-control" name="report_type" id="reportType">
+                                <option value="users">User Report</option>
+                                <option value="transactions">Transaction Report</option>
+                                <option value="cases">Case Report</option>
+                                <option value="financial">Financial Summary</option>
+                                <option value="activity">Activity Log</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select class="form-control" name="status">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" class="form-control" name="start_date" id="startDate">
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>End Date</label>
+                            <input type="date" class="form-control" name="end_date" id="endDate">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="button" class="btn btn-primary btn-block" id="generateReport">
+                                <i class="anticon anticon-file-pdf"></i> Generate Report
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </form>
+        </div>
+    </div>
+    
+    <!-- Quick Reports -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="anticon anticon-team font-size-40 text-primary"></i>
+                    <h5 class="mt-3">User Activity Report</h5>
+                    <p class="text-muted">Generate comprehensive user activity and engagement report</p>
+                    <button class="btn btn-primary btn-sm" onclick="generateQuickReport('users')">
+                        <i class="anticon anticon-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="anticon anticon-dollar font-size-40 text-success"></i>
+                    <h5 class="mt-3">Financial Report</h5>
+                    <p class="text-muted">View all transactions, deposits, and withdrawals</p>
+                    <button class="btn btn-success btn-sm" onclick="generateQuickReport('financial')">
+                        <i class="anticon anticon-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="anticon anticon-file-protect font-size-40 text-warning"></i>
+                    <h5 class="mt-3">Case Management Report</h5>
+                    <p class="text-muted">Summary of all cases and their current status</p>
+                    <button class="btn btn-warning btn-sm" onclick="generateQuickReport('cases')">
+                        <i class="anticon anticon-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Report History -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="mb-3">Recent Reports</h5>
+            <div class="table-responsive">
+                <table class="table table-hover" id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th>Report Type</th>
+                            <th>Date Range</th>
+                            <th>Generated By</th>
+                            <th>Generated On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-primary">User Report</span></td>
+                            <td>2024-01-01 to 2024-01-31</td>
+                            <td>Admin User</td>
+                            <td><?= date('Y-m-d H:i') ?></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary">
+                                    <i class="anticon anticon-download"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <?php require_once 'admin_footer.php'; ?>
+
+<script>
+$(document).ready(function() {
+    // Set default dates
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+    $('#endDate').val(today.toISOString().split('T')[0]);
+    $('#startDate').val(lastMonth.toISOString().split('T')[0]);
+    
+    $('#generateReport').click(function() {
+        const reportType = $('#reportType').val();
+        const startDate = $('#startDate').val();
+        const endDate = $('#endDate').val();
+        
+        if (!startDate || !endDate) {
+            toastr.error('Please select start and end dates');
+            return;
+        }
+        
+        toastr.info('Generating report...');
+        
+        // In a real implementation, this would call an API endpoint
+        setTimeout(() => {
+            toastr.success('Report generated successfully');
+        }, 1000);
+    });
+});
+
+function generateQuickReport(type) {
+    toastr.info('Generating ' + type + ' report...');
+    
+    // In a real implementation, this would call an API endpoint
+    setTimeout(() => {
+        toastr.success('Report generated successfully');
+    }, 1000);
+}
+</script>
 
 

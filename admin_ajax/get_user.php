@@ -2,11 +2,13 @@
 // =======================================================
 // 🔍 get_user.php — fetch full user details for admin modal
 // =======================================================
-require_once '../../config.php';
+require_once '../admin_session.php';
 header('Content-Type: application/json; charset=utf-8');
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
+// Only enable error display during development
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 
 try {
     if (empty($_GET['id']) || !ctype_digit($_GET['id'])) {
@@ -18,12 +20,79 @@ try {
     // --------------------------------
     // 🧑 Basic Info
     // --------------------------------
-    $stmt = $pdo->prepare("SELECT id, first_name, last_name, email, status, balance, created_at 
+    $stmt = $pdo->prepare("SELECT id, first_name, last_name, email, phone, status, balance, created_at 
                            FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) {
         throw new Exception('User not found');
+    }
+
+    // --------------------------------
+    // 📊 Case Recovery Stats
+    // --------------------------------
+    $stmtCaseStats = $pdo->prepare("
+        SELECT 
+            COUNT(*) as total_cases,
+            COALESCE(SUM(reported_amount), 0) as total_reported,
+            COALESCE(SUM(recovered_amount), 0) as total_recovered,
+            SUM(CASE WHEN status IN ('open', 'documents_required', 'under_review') THEN 1 ELSE 0 END) as processing,
+            SUM(CASE WHEN status = 'refund_approved' THEN 1 ELSE 0 END) as approved,
+            SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed
+        FROM cases WHERE user_id = ?
+    ");
+    $stmtCaseStats->execute([$userId]);
+    $caseStats = $stmtCaseStats->fetch(PDO::FETCH_ASSOC);
+
+    // --------------------------------
+    // 📦 User Package Info
+    // --------------------------------
+    $stmtPackage = $pdo->prepare("
+        SELECT up.*, p.name as package_name, p.price, p.duration_days
+        FROM user_packages up
+        JOIN packages p ON up.package_id = p.id
+        WHERE up.user_id = ? 
+        ORDER BY up.created_at DESC LIMIT 1
+    ");
+    $stmtPackage->execute([$userId]);
+    $userPackage = $stmtPackage->fetch(PDO::FETCH_ASSOC);
+
+    $packageInfo = '';
+    if ($userPackage) {
+        // Calculate actual status based on end_date
+        $endDate = new DateTime($userPackage['end_date']);
+        $today = new DateTime('today');
+        $actualStatus = $userPackage['status'];
+        
+        // If stored status is 'active' but end_date has passed, it's actually expired
+        if ($userPackage['status'] === 'active' && $endDate < $today) {
+            $actualStatus = 'expired';
+            
+            // Also update the database to reflect the expired status
+            $updateStmt = $pdo->prepare("UPDATE user_packages SET status = 'expired' WHERE id = ?");
+            $updateStmt->execute([$userPackage['id']]);
+        }
+        
+        $statusBadge = [
+            'active' => 'success',
+            'pending' => 'warning', 
+            'expired' => 'danger',
+            'cancelled' => 'secondary'
+        ][$actualStatus] ?? 'secondary';
+        
+        $packageInfo = "
+            <tr><th colspan='2' class='bg-light text-primary'><strong>📦 Package Information</strong></th></tr>
+            <tr><th>Package</th><td>{$userPackage['package_name']}</td></tr>
+            <tr><th>Price</th><td>€" . number_format($userPackage['price'], 2) . "</td></tr>
+            <tr><th>Status</th><td><span class='badge badge-{$statusBadge}'>{$actualStatus}</span></td></tr>
+            <tr><th>Start Date</th><td>{$userPackage['start_date']}</td></tr>
+            <tr><th>Expiration Date</th><td><strong>{$userPackage['end_date']}</strong></td></tr>
+        ";
+    } else {
+        $packageInfo = "
+            <tr><th colspan='2' class='bg-light text-primary'><strong>📦 Package Information</strong></th></tr>
+            <tr><td colspan='2' class='text-muted'>No package assigned</td></tr>
+        ";
     }
 
     $basicHTML = "
@@ -34,6 +103,16 @@ try {
             <tr><th>Status</th><td>{$user['status']}</td></tr>
             <tr><th>Balance</th><td>$" . number_format($user['balance'], 2) . "</td></tr>
             <tr><th>Registered</th><td>{$user['created_at']}</td></tr>
+            
+            <tr><th colspan='2' class='bg-light text-success'><strong>📊 Case Recovery Summary</strong></th></tr>
+            <tr><th>Total Cases</th><td>{$caseStats['total_cases']}</td></tr>
+            <tr><th>Cases Processing</th><td><span class='badge badge-warning'>{$caseStats['processing']}</span></td></tr>
+            <tr><th>Cases Approved</th><td><span class='badge badge-success'>{$caseStats['approved']}</span></td></tr>
+            <tr><th>Cases Closed</th><td><span class='badge badge-secondary'>{$caseStats['closed']}</span></td></tr>
+            <tr><th>Total Reported</th><td>€" . number_format($caseStats['total_reported'], 2) . "</td></tr>
+            <tr><th>Total Recovered</th><td><strong class='text-success'>€" . number_format($caseStats['total_recovered'], 2) . "</strong></td></tr>
+            
+            {$packageInfo}
         </table>
     ";
 
@@ -202,8 +281,45 @@ try {
     // --------------------------------
     // ✅ Final Response
     // --------------------------------
+    
+    // Build package_info for classification page modal
+    $packageInfoData = null;
+    if ($userPackage) {
+        // Calculate actual status based on end_date
+        $endDate = new DateTime($userPackage['end_date']);
+        $today = new DateTime('today');
+        $actualStatus = $userPackage['status'];
+        if ($userPackage['status'] === 'active' && $endDate < $today) {
+            $actualStatus = 'expired';
+        }
+        
+        $packageInfoData = [
+            'package_name' => $userPackage['package_name'],
+            'price' => $userPackage['price'],
+            'status' => $actualStatus,
+            'start_date' => $userPackage['start_date'],
+            'end_date' => $userPackage['end_date'],
+            'duration_days' => $userPackage['duration_days']
+        ];
+    }
+    
+    // Build case_summary for classification page modal
+    $caseSummary = [
+        'total_cases' => $caseStats['total_cases'],
+        'processing' => $caseStats['processing'],
+        'approved' => $caseStats['approved'],
+        'closed' => $caseStats['closed'],
+        'total_reported' => $caseStats['total_reported'],
+        'total_recovered' => $caseStats['total_recovered']
+    ];
+    
     echo json_encode([
         'success' => true,
+        // Raw data for classification page modals
+        'user' => $user,
+        'package_info' => $packageInfoData,
+        'case_summary' => $caseSummary,
+        // HTML for admin_users.php modal
         'html' => [
             'basic' => $basicHTML,
             'onboarding' => $onboardingHTML,

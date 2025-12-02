@@ -65,6 +65,20 @@ Generated on: 2025-08-20 22:32:22
 2. **Settings Pages** - Configuration pages with form handling
 3. **Specialty Pages** - Custom pages for specific functionality
 
+## Recent Features
+
+### Send Mail to Users
+The admin panel now includes the ability to send custom emails to individual users directly from the Users Management page.
+
+**Features:**
+- Click the mail icon (📧) on any user to send them an email
+- Select from existing email templates or compose custom emails
+- Automatic variable replacement (first_name, last_name, email, balance, etc.)
+- Integration with SMTP settings
+- Email logging and admin action tracking
+
+**Documentation:** See [SEND_MAIL_FEATURE.md](SEND_MAIL_FEATURE.md) for detailed usage instructions.
+
 ## Notes
 
 - All pages include responsive design

@@ -4,8 +4,8 @@ require_once '../../config.php';
 #require_once 'admin_auth.php';
 
 $columns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
-$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :suspended";
-$params = ['suspended' => 'suspended'];
+$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status";
+$params = ['excluded_status' => 'suspended'];
 
 // Search filter
 $searchValue = '';
@@ -65,11 +65,11 @@ $totalRecords = $pdo->query("SELECT COUNT(*) FROM users WHERE status != 'suspend
 
 // Calculate filtered total if search is applied
 if (!empty($searchValue)) {
-    $countQuery = "SELECT COUNT(*) FROM users WHERE status != :suspended 
+    $countQuery = "SELECT COUNT(*) FROM users WHERE status != :excluded_status 
                    AND (first_name LIKE :search1 OR last_name LIKE :search2 OR email LIKE :search3)";
     $countStmt = $pdo->prepare($countQuery);
     $countStmt->execute([
-        'suspended' => 'suspended',
+        'excluded_status' => 'suspended',
         'search1' => '%' . $searchValue . '%',
         'search2' => '%' . $searchValue . '%',
         'search3' => '%' . $searchValue . '%'

@@ -399,7 +399,7 @@ order: [[0,'desc']],
     $('#usersTable').on('click', '.delete-user', function() {
         const userId = $(this).data('id');
         
-        if (!confirm('Are you sure you want to suspend this user? They will not be removed from the database but will no longer appear in the default users list.')) {
+        if (!confirm('Are you sure you want to suspend this user? (Note: User will be hidden from list but not deleted from database)')) {
             return;
         }
         

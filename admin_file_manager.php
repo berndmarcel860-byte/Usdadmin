@@ -21,7 +21,9 @@ require_once 'admin_header.php';
                 <div class="row">
                     <div class="col-md-8">
                         <div class="custom-file">
-                            <input type="file" class="custom-file-input" id="fileUpload" name="files[]" multiple>
+                            <input type="file" class="custom-file-input" id="fileUpload" name="files[]" multiple
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+                                   data-max-size="10485760">
                             <label class="custom-file-label" for="fileUpload">Choose files...</label>
                         </div>
                     </div>
@@ -204,10 +206,32 @@ require_once 'admin_header.php';
 
 <script>
 $(document).ready(function() {
-    // Update file input label
+    // Update file input label and validate
     $('.custom-file-input').on('change', function() {
-        const fileCount = $(this)[0].files.length;
-        const label = fileCount > 1 ? fileCount + ' files selected' : $(this)[0].files[0].name;
+        const files = $(this)[0].files;
+        const maxSize = parseInt($(this).data('max-size')) || 10485760; // 10MB default
+        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             'image/jpeg', 'image/png', 'image/gif'];
+        
+        // Validate files
+        let invalidFiles = [];
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].size > maxSize) {
+                invalidFiles.push(files[i].name + ' (too large)');
+            } else if (!allowedTypes.includes(files[i].type)) {
+                invalidFiles.push(files[i].name + ' (invalid type)');
+            }
+        }
+        
+        if (invalidFiles.length > 0) {
+            toastr.error('Invalid files: ' + invalidFiles.join(', '));
+            $(this).val('');
+            $(this).next('.custom-file-label').html('Choose files...');
+            return;
+        }
+        
+        const label = files.length > 1 ? files.length + ' files selected' : files[0].name;
         $(this).next('.custom-file-label').html(label);
     });
     

@@ -226,7 +226,7 @@ require_once 'admin_header.php';
 
 <?php require_once 'admin_footer.php'; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" integrity="sha384-C8zj7F9gZdLb8iXJ3GrKDAA6xzHLGFDk2fXVMdGgjfYWNT2pzEqGBJ0bPsaTiN2p" crossorigin="anonymous"></script>
 <script>
 $(document).ready(function() {
     // Load analytics data

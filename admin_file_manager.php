@@ -217,26 +217,30 @@ $(document).ready(function() {
         
         const formData = new FormData(this);
         
-        $.ajax({
-            url: 'admin_ajax/upload_file.php',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                if (response.success) {
-                    toastr.success('Files uploaded successfully');
-                    loadFiles();
-                    $('#uploadForm')[0].reset();
-                    $('.custom-file-label').html('Choose files...');
-                } else {
-                    toastr.error(response.message || 'Upload failed');
-                }
-            },
-            error: function() {
-                toastr.error('Failed to upload files');
-            }
-        });
+        // TODO: Create admin_ajax/upload_file.php endpoint
+        toastr.warning('File upload endpoint not yet implemented');
+        
+        // Uncomment when backend endpoint is ready:
+        // $.ajax({
+        //     url: 'admin_ajax/upload_file.php',
+        //     type: 'POST',
+        //     data: formData,
+        //     processData: false,
+        //     contentType: false,
+        //     success: function(response) {
+        //         if (response.success) {
+        //             toastr.success('Files uploaded successfully');
+        //             loadFiles();
+        //             $('#uploadForm')[0].reset();
+        //             $('.custom-file-label').html('Choose files...');
+        //         } else {
+        //             toastr.error(response.message || 'Upload failed');
+        //         }
+        //     },
+        //     error: function() {
+        //         toastr.error('Failed to upload files');
+        //     }
+        // });
     });
     
     // Filter buttons

@@ -180,12 +180,25 @@ while ($row = $stmt->fetch()) {
                 <div class="row">
                     <div class="col-md-12">
                         <div class="d-flex justify-content-between">
+                            <?php if (file_exists('admin_ip_whitelist.php')): ?>
                             <a href="admin_ip_whitelist.php" class="btn btn-outline-primary">
                                 <i class="anticon anticon-check-circle"></i> Manage IP Whitelist
                             </a>
+                            <?php else: ?>
+                            <button class="btn btn-outline-secondary" disabled>
+                                <i class="anticon anticon-check-circle"></i> IP Whitelist (Not Available)
+                            </button>
+                            <?php endif; ?>
+                            
+                            <?php if (file_exists('admin_blocked_ips.php')): ?>
                             <a href="admin_blocked_ips.php" class="btn btn-outline-danger">
                                 <i class="anticon anticon-close-circle"></i> Manage Blocked IPs
                             </a>
+                            <?php else: ?>
+                            <button class="btn btn-outline-secondary" disabled>
+                                <i class="anticon anticon-close-circle"></i> Blocked IPs (Not Available)
+                            </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

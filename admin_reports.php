@@ -152,9 +152,20 @@ $(document).ready(function() {
         
         toastr.info('Generating report...');
         
-        // In a real implementation, this would call an API endpoint
+        // TODO: Replace with actual API endpoint when backend is ready
+        // $.ajax({
+        //     url: 'admin_ajax/generate_report.php',
+        //     type: 'POST',
+        //     data: { type: reportType, start_date: startDate, end_date: endDate },
+        //     success: function(response) {
+        //         if (response.success) {
+        //             toastr.success('Report generated successfully');
+        //             window.location.href = response.download_url;
+        //         }
+        //     }
+        // });
         setTimeout(() => {
-            toastr.success('Report generated successfully');
+            toastr.success('Report generated successfully (demo mode)');
         }, 1000);
     });
 });
@@ -162,9 +173,19 @@ $(document).ready(function() {
 function generateQuickReport(type) {
     toastr.info('Generating ' + type + ' report...');
     
-    // In a real implementation, this would call an API endpoint
+    // TODO: Replace with actual API endpoint when backend is ready
+    // $.ajax({
+    //     url: 'admin_ajax/generate_quick_report.php',
+    //     type: 'POST',
+    //     data: { type: type },
+    //     success: function(response) {
+    //         if (response.success) {
+    //             window.location.href = response.download_url;
+    //         }
+    //     }
+    // });
     setTimeout(() => {
-        toastr.success('Report generated successfully');
+        toastr.success('Report generated successfully (demo mode)');
     }, 1000);
 }
 </script>

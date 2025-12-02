@@ -67,8 +67,15 @@ while ($row = $stmt->fetch()) {
                 
                 <div class="form-group">
                     <label>Webhook URL</label>
+                    <?php 
+                    $webhookUrl = $settings['webhook_url'] ?? '';
+                    if (empty($webhookUrl)) {
+                        $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . 
+                                     '://' . $_SERVER['HTTP_HOST'] . '/webhook';
+                    }
+                    ?>
                     <input type="text" class="form-control" name="webhook_url" 
-                           value="<?= htmlspecialchars($settings['webhook_url'] ?? 'https://yourdomain.com/webhook') ?>" readonly>
+                           value="<?= htmlspecialchars($webhookUrl) ?>" readonly>
                     <small class="text-muted">Configure this URL in your payment gateway settings</small>
                 </div>
                 

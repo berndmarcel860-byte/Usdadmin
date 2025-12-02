@@ -19,13 +19,16 @@ if (isset($_POST['search']['value']) && !empty($_POST['search']['value'])) {
     $params['search3'] = '%' . $searchValue . '%';
 }
 
-// Ordering - sanitize column and direction
+// Ordering - whitelist approach with strict validation
+$allowedColumns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
 if (isset($_POST['order'])) {
     $columnIndex = intval($_POST['order'][0]['column']);
-    if (isset($columns[$columnIndex])) {
+    if (isset($columns[$columnIndex]) && in_array($columns[$columnIndex], $allowedColumns, true)) {
         $column = $columns[$columnIndex];
         $dir = strtoupper($_POST['order'][0]['dir']) === 'DESC' ? 'DESC' : 'ASC';
-        $query .= " ORDER BY $column $dir";
+        $query .= " ORDER BY " . $column . " " . $dir;
+    } else {
+        $query .= " ORDER BY id DESC";
     }
 } else {
     $query .= " ORDER BY id DESC";

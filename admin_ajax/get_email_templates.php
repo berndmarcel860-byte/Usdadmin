@@ -4,6 +4,22 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Support both GET and POST requests
+    $isDataTable = isset($_POST['draw']);
+    
+    if (!$isDataTable && $_SERVER['REQUEST_METHOD'] === 'GET') {
+        // Simple GET request - return all templates
+        $query = "SELECT id, template_key, subject, content, variables FROM email_templates ORDER BY template_key ASC";
+        $stmt = $pdo->query($query);
+        $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $templates
+        ]);
+        exit;
+    }
+    
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
     $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;

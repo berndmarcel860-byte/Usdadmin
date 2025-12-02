@@ -1,4 +1,26 @@
 <?php
+// =======================================================
+// PHPMailer imports
+// =======================================================
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+// =======================================================
+// Error reporting (disable in production)
+// =======================================================
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// =======================================================
+// PHPMailer availability check
+// =======================================================
+$phpMailerAvailable = false;
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+    $phpMailerAvailable = true;
+}
+
 require_once '../admin_session.php';
 
 header('Content-Type: application/json');
@@ -26,9 +48,9 @@ try {
         throw new Exception('Withdrawal cannot be approved in its current state');
     }
     
-    // Update withdrawal status
-    $stmt = $pdo->prepare("UPDATE withdrawals SET status = 'completed', updated_at = NOW() WHERE id = ?");
-    $stmt->execute([$withdrawalId]);
+    // Update withdrawal status (NO balance change - balance already deducted when withdrawal was requested)
+    $stmt = $pdo->prepare("UPDATE withdrawals SET status = 'completed', processed_by = ?, processed_at = NOW(), updated_at = NOW() WHERE id = ?");
+    $stmt->execute([$_SESSION['admin_id'], $withdrawalId]);
     
     // Create transaction record
     $stmt = $pdo->prepare("
@@ -39,15 +61,17 @@ try {
             payment_method_id,
             status,
             reference,
+            processed_by,
             created_at,
             updated_at
         ) VALUES (
             :user_id,
             'withdrawal',
             :amount,
-            (SELECT id FROM payment_methods WHERE method_code = :method_code),
+            (SELECT id FROM payment_methods WHERE method_code = :method_code LIMIT 1),
             'completed',
             :reference,
+            :processed_by,
             NOW(),
             NOW()
         )
@@ -55,9 +79,72 @@ try {
     $stmt->execute([
         ':user_id' => $withdrawal['user_id'],
         ':amount' => $withdrawal['amount'],
-        ':method_code' => $withdrawal['method_code'],
-        ':reference' => $withdrawal['reference']
+        ':method_code' => $withdrawal['method_code'] ?? 'bank_transfer',
+        ':reference' => $withdrawal['reference'] ?? 'WD-' . $withdrawalId,
+        ':processed_by' => $_SESSION['admin_id']
     ]);
+    
+    // Get user details
+    $stmt = $pdo->prepare("SELECT id, email, first_name, last_name FROM users WHERE id = ?");
+    $stmt->execute([$withdrawal['user_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($user) {
+        // Send approval email using template
+        sendWithdrawalApprovalEmail($pdo, $user, 'withdrawal_approved', $withdrawal);
+        
+        // Create user notification
+        try {
+            $notifUser = $pdo->prepare("
+                INSERT INTO user_notifications (user_id, title, message, type, related_entity, related_id, created_at)
+                VALUES (:user_id, :title, :message, :type, :entity, :rel_id, NOW())
+            ");
+            $notifUser->execute([
+                ':user_id' => (int)$withdrawal['user_id'],
+                ':title' => 'Auszahlung genehmigt',
+                ':message' => 'Ihre Auszahlung über <strong>' 
+                    . number_format($withdrawal['amount'], 2) . ' €</strong> wurde erfolgreich genehmigt und wird in Kürze bearbeitet.',
+                ':type' => 'success',
+                ':entity' => 'withdrawal',
+                ':rel_id' => $withdrawalId
+            ]);
+        } catch (Exception $e) {
+            error_log("User notification failed: " . $e->getMessage());
+        }
+        
+        // Create admin notification
+        try {
+            $notifAdmin = $pdo->prepare("
+                INSERT INTO admin_notifications (admin_id, title, message, type, is_read, created_at)
+                VALUES (:admin_id, :title, :message, :type, 0, NOW())
+            ");
+            $notifAdmin->execute([
+                ':admin_id' => (int)$_SESSION['admin_id'],
+                ':title' => 'Auszahlung genehmigt',
+                ':message' => 'Sie haben eine Auszahlung von Benutzer-ID <strong>'
+                    . (int)$withdrawal['user_id'] . '</strong> über <strong>'
+                    . number_format($withdrawal['amount'], 2) . ' €</strong> genehmigt.',
+                ':type' => 'info'
+            ]);
+        } catch (Exception $e) {
+            error_log("Admin notification failed: " . $e->getMessage());
+        }
+    }
+    
+    // Log admin action
+    try {
+        $logStmt = $pdo->prepare("
+            INSERT INTO admin_logs (admin_id, action, description, entity_type, entity_id, created_at)
+            VALUES (?, 'approve_withdrawal', ?, 'withdrawal', ?, NOW())
+        ");
+        $logStmt->execute([
+            $_SESSION['admin_id'],
+            'Approved withdrawal of ' . number_format($withdrawal['amount'], 2) . ' € for user ID ' . $withdrawal['user_id'],
+            $withdrawalId
+        ]);
+    } catch (Exception $e) {
+        error_log("Admin log failed: " . $e->getMessage());
+    }
     
     $pdo->commit();
     
@@ -66,11 +153,126 @@ try {
         'message' => 'Withdrawal approved successfully'
     ]);
 } catch (Exception $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     echo json_encode([
         'success' => false,
         'message' => 'Failed to approve withdrawal',
         'error' => $e->getMessage()
     ]);
+}
+
+/**
+ * =======================================================
+ * Send Withdrawal Approval Email
+ * =======================================================
+ */
+function sendWithdrawalApprovalEmail($pdo, $user, $templateKey, $withdrawal)
+{
+    global $phpMailerAvailable;
+    
+    try {
+        // === Template
+        $tpl = $pdo->prepare("SELECT * FROM email_templates WHERE template_key = ? LIMIT 1");
+        $tpl->execute([$templateKey]);
+        $template = $tpl->fetch(PDO::FETCH_ASSOC);
+        
+        // If template not found, use fallback or deposit_confirmation template
+        if (!$template) {
+            $tplFallback = $pdo->prepare("SELECT * FROM email_templates WHERE template_key = ? LIMIT 1");
+            $tplFallback->execute(['deposit_confirmation']); // Use similar template as fallback
+            $template = $tplFallback->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        if (!$template) {
+            error_log("Email template not found: " . $templateKey . " - using fallback");
+            $template = [
+                'id' => 0,
+                'subject' => 'Auszahlung genehmigt',
+                'content' => '<p>Sehr geehrte/r {first_name} {last_name},</p><p>Ihre Auszahlung über {amount} wurde genehmigt und wird in Kürze bearbeitet.</p><p>Mit freundlichen Grüßen</p>'
+            ];
+        }
+
+        // === SMTP + System settings
+        $smtp = $pdo->query("SELECT * FROM smtp_settings WHERE is_active = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if (!$smtp) {
+            error_log("No active SMTP configuration found");
+            return;
+        }
+        $sys = $pdo->query("SELECT * FROM system_settings WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+
+        // === Lookup payment method name
+        $methodName = 'Banküberweisung';
+        if (!empty($withdrawal['method_code'])) {
+            $methodStmt = $pdo->prepare("SELECT method_name FROM payment_methods WHERE method_code = ? LIMIT 1");
+            $methodStmt->execute([$withdrawal['method_code']]);
+            $method = $methodStmt->fetch(PDO::FETCH_ASSOC);
+            if ($method && !empty($method['method_name'])) {
+                $methodName = $method['method_name'];
+            }
+        }
+
+        // === Template variables
+        $vars = [
+            '{first_name}'         => htmlspecialchars($user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'),
+            '{last_name}'          => htmlspecialchars($user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'),
+            '{amount}'             => number_format($withdrawal['amount'], 2) . ' €',
+            '{payment_method}'     => htmlspecialchars($methodName, ENT_QUOTES, 'UTF-8'),
+            '{payment_details}'    => htmlspecialchars($withdrawal['payment_details'] ?? '', ENT_QUOTES, 'UTF-8'),
+            '{reference}'          => htmlspecialchars($withdrawal['reference'] ?? 'WD-' . $withdrawal['id'], ENT_QUOTES, 'UTF-8'),
+            '{transaction_id}'     => htmlspecialchars($withdrawal['reference'] ?? 'WD-' . $withdrawal['id'], ENT_QUOTES, 'UTF-8'),
+            '{transaction_date}'   => date('Y-m-d H:i:s'),
+            '{transaction_status}' => 'Completed',
+            '{site_url}'           => $sys['site_url'] ?? 'https://kryptox.co.uk',
+            '{site_name}'          => htmlspecialchars($sys['site_name'] ?? 'KryptoX', ENT_QUOTES, 'UTF-8'),
+            '{surl}'               => $sys['site_url'] ?? 'https://kryptox.co.uk',
+            '{sbrand}'             => htmlspecialchars($sys['site_name'] ?? 'KryptoX', ENT_QUOTES, 'UTF-8'),
+            '{semail}'             => htmlspecialchars($sys['contact_email'] ?? 'info@kryptox.co.uk', ENT_QUOTES, 'UTF-8'),
+            '{sphone}'             => htmlspecialchars($sys['contact_phone'] ?? '', ENT_QUOTES, 'UTF-8')
+        ];
+
+        $subject  = strtr($template['subject'], $vars);
+        $htmlBody = strtr($template['content'], $vars);
+        $textBody = strip_tags($htmlBody);
+
+        // === Send email
+        if ($phpMailerAvailable) {
+            $mail = new PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host       = $smtp['host'];
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $smtp['username'];
+            $mail->Password   = $smtp['password'];
+            $mail->SMTPSecure = ($smtp['encryption'] === 'ssl')
+                ? PHPMailer::ENCRYPTION_SMTPS
+                : PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = (int)$smtp['port'];
+            $mail->CharSet    = 'UTF-8';
+            $mail->Encoding   = 'base64';
+            $mail->setFrom($smtp['from_email'], $smtp['from_name']);
+            $mail->addAddress($user['email'], trim($user['first_name'] . ' ' . $user['last_name']));
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = $textBody;
+            $mail->send();
+        } else {
+            $headers  = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-type:text/html;charset=UTF-8\r\n";
+            $headers .= 'From: ' . $smtp['from_name'] . ' <' . $smtp['from_email'] . '>' . "\r\n";
+            mail($user['email'], $subject, $htmlBody, $headers);
+        }
+
+        // === Log email
+        $log = $pdo->prepare("
+            INSERT INTO email_logs (template_id, recipient, subject, content, sent_at, status)
+            VALUES (?, ?, ?, ?, NOW(), 'sent')
+        ");
+        $log->execute([$template['id'] ?? null, $user['email'], $subject, $htmlBody]);
+
+    } catch (Exception $e) {
+        error_log("Withdrawal approval email failed: " . $e->getMessage());
+    }
 }
 ?>

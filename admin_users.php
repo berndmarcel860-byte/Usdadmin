@@ -115,9 +115,61 @@ require_once 'admin_header.php';
   </div>
 </div>
 
+<!-- Send Email Modal -->
+<div class="modal fade" id="sendMailModal">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Send Email to User</h5>
+        <button type="button" class="close" data-dismiss="modal"><i class="anticon anticon-close"></i></button>
+      </div>
+      <form id="sendMailForm">
+        <div class="modal-body">
+          <input type="hidden" name="user_id" id="send_mail_user_id">
+          <div class="form-group">
+            <label>Recipient</label>
+            <input type="text" class="form-control" id="send_mail_recipient" readonly>
+          </div>
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" class="form-control" name="subject" id="send_mail_subject" placeholder="Enter email subject" required>
+          </div>
+          <div class="form-group">
+            <label>Message</label>
+            <textarea class="form-control" name="message" id="send_mail_content" rows="8" placeholder="Enter your message here. It will be wrapped in a professional HTML template automatically." required></textarea>
+            <small class="form-text text-muted">
+              <strong>Variables available:</strong> {first_name}, {last_name}, {email}, {user_id}, {balance}, {status}, {site_url}, {site_name}, {contact_email}
+            </small>
+          </div>
+          <div class="alert alert-info">
+            <i class="anticon anticon-info-circle"></i> Your message will be automatically wrapped in the professional KryptoX HTML email template with gradient header, signature, and footer.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="anticon anticon-send"></i> Send Email
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <?php require_once 'admin_footer.php'; ?>
 
 <script>
+// Utility functions
+window.escapeHtml = function(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+};
+
+window.decodeHtml = function(html) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+};
+
 $(document).ready(function() {
 
     // Initialize DataTable
@@ -141,19 +193,26 @@ order: [[0,'desc']],
             { data: 'balance', render: d => '$' + parseFloat(d).toFixed(2) },
             { data: 'created_at', render: d => new Date(d).toLocaleDateString() },
             {
-                data: 'id',
-                render: id => `
+                data: null,
+                render: function(data, type, row) {
+                    const email = window.escapeHtml(data.email);
+                    const name = window.escapeHtml(data.first_name + ' ' + data.last_name);
+                    return `
                     <div class="btn-group">
-                        <button class="btn btn-sm btn-info view-user" data-id="${id}">
+                        <button class="btn btn-sm btn-info view-user" data-id="${data.id}" title="View Details">
                             <i class="anticon anticon-eye"></i>
                         </button>
-                        <button class="btn btn-sm btn-primary edit-user" data-id="${id}">
+                        <button class="btn btn-sm btn-primary edit-user" data-id="${data.id}" title="Edit User">
                             <i class="anticon anticon-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger delete-user" data-id="${id}">
+                        <button class="btn btn-sm btn-success send-mail-user" data-id="${data.id}" data-email="${email}" data-name="${name}" title="Send Email">
+                            <i class="anticon anticon-mail"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-user" data-id="${data.id}" title="Delete User">
                             <i class="anticon anticon-delete"></i>
                         </button>
-                    </div>`
+                    </div>`;
+                }
             }
         ]
     });
@@ -215,6 +274,57 @@ order: [[0,'desc']],
                 }
             },
             complete:()=>$('#addUserForm button[type="submit"]').prop('disabled',false).html('Add User')
+        });
+    });
+
+    // 📧 Send Mail to User
+    $('#usersTable').on('click', '.send-mail-user', function() {
+        const userId = $(this).data('id');
+        const userEmail = $(this).data('email');
+        const userName = $(this).data('name');
+        
+        $('#send_mail_user_id').val(userId);
+        $('#send_mail_recipient').val(`${window.decodeHtml(userName)} <${window.decodeHtml(userEmail)}>`);
+        $('#send_mail_subject').val('');
+        $('#send_mail_content').val('');
+        
+        $('#sendMailModal').modal('show');
+    });
+    
+    // Send Mail Form Submission - Uses Universal Email Sender
+    $('#sendMailForm').submit(function(e) {
+        e.preventDefault();
+        
+        if (!confirm('Are you sure you want to send this email?')) {
+            return;
+        }
+        
+        $.ajax({
+            url: 'admin_ajax/send_universal_email.php',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+                $('#sendMailForm button[type="submit"]').prop('disabled', true)
+                    .html('<i class="anticon anticon-loading anticon-spin"></i> Sending...');
+            },
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    $('#sendMailModal').modal('hide');
+                    $('#sendMailForm')[0].reset();
+                } else {
+                    toastr.error(response.message || 'Failed to send email');
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.responseText);
+                toastr.error('Failed to send email. Please check console for details.');
+            },
+            complete: function() {
+                $('#sendMailForm button[type="submit"]').prop('disabled', false)
+                    .html('<i class="anticon anticon-send"></i> Send Email');
+            }
         });
     });
 });

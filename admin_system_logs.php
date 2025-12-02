@@ -10,13 +10,14 @@ $logStats = [
 ];
 
 try {
-    $stmt = $pdo->query("SELECT 
+    $stmt = $pdo->prepare("SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN action LIKE '%error%' OR action LIKE '%fail%' THEN 1 ELSE 0 END) as errors,
-        SUM(CASE WHEN action LIKE '%warning%' OR action LIKE '%suspend%' THEN 1 ELSE 0 END) as warnings,
-        SUM(CASE WHEN action NOT LIKE '%error%' AND action NOT LIKE '%fail%' AND action NOT LIKE '%warning%' THEN 1 ELSE 0 END) as info
+        SUM(CASE WHEN action LIKE ? OR action LIKE ? THEN 1 ELSE 0 END) as errors,
+        SUM(CASE WHEN action LIKE ? OR action LIKE ? THEN 1 ELSE 0 END) as warnings,
+        SUM(CASE WHEN action NOT LIKE ? AND action NOT LIKE ? AND action NOT LIKE ? THEN 1 ELSE 0 END) as info
         FROM admin_logs
         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+    $stmt->execute(['%error%', '%fail%', '%warning%', '%suspend%', '%error%', '%fail%', '%warning%']);
     $logStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: $logStats;
 } catch (PDOException $e) {
     error_log("Error fetching log stats: " . $e->getMessage());
@@ -133,12 +134,15 @@ try {
                             <option value="">All Admins</option>
                             <?php
                             try {
-                                $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins ORDER BY first_name")->fetchAll(PDO::FETCH_ASSOC);
+                                $adminsStmt = $pdo->prepare("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins ORDER BY first_name");
+                                $adminsStmt->execute();
+                                $admins = $adminsStmt->fetchAll(PDO::FETCH_ASSOC);
                                 foreach ($admins as $admin) {
                                     echo '<option value="' . $admin['id'] . '">' . htmlspecialchars($admin['name']) . '</option>';
                                 }
                             } catch (PDOException $e) {
-                                // Silently fail
+                                error_log("Error loading admins list: " . $e->getMessage());
+                                echo '<option value="">Error loading admins</option>';
                             }
                             ?>
                         </select>

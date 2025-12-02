@@ -1,6 +1,13 @@
 <?php
 require_once '../../config.php';
 
+// Verify admin is logged in
+if (!isset($_SESSION['admin_id'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
 header('Content-Type: application/json');
 
 try {

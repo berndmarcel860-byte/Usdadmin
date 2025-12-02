@@ -156,6 +156,59 @@ require_once 'admin_header.php';
   </div>
 </div>
 
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit User</h5>
+        <button type="button" class="close" data-dismiss="modal"><i class="anticon anticon-close"></i></button>
+      </div>
+      <form id="editUserForm">
+        <div class="modal-body">
+          <input type="hidden" name="id" id="edit_user_id">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" class="form-control" name="first_name" id="edit_first_name" required>
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" class="form-control" name="last_name" id="edit_last_name" required>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" class="form-control" name="email" id="edit_email" required>
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" class="form-control" name="phone" id="edit_phone">
+          </div>
+          <div class="form-group">
+            <label>Country</label>
+            <input type="text" class="form-control" name="country" id="edit_country">
+          </div>
+          <div class="form-group">
+            <label>Balance</label>
+            <input type="number" class="form-control" name="balance" id="edit_balance" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select class="form-control" name="status" id="edit_status">
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="banned">Banned</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Update User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <?php require_once 'admin_footer.php'; ?>
 
 <script>
@@ -277,6 +330,98 @@ order: [[0,'desc']],
         });
     });
 
+    // ✏️ Edit User
+    $('#usersTable').on('click', '.edit-user', function() {
+        const userId = $(this).data('id');
+        
+        // Fetch user data
+        $.ajax({
+            url: 'admin_ajax/get_user.php',
+            method: 'GET',
+            data: { id: userId },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success && res.user) {
+                    const user = res.user;
+                    $('#edit_user_id').val(user.id);
+                    $('#edit_first_name').val(user.first_name);
+                    $('#edit_last_name').val(user.last_name);
+                    $('#edit_email').val(user.email);
+                    $('#edit_phone').val(user.phone || '');
+                    $('#edit_country').val(user.country || '');
+                    $('#edit_balance').val(user.balance || '0');
+                    $('#edit_status').val(user.status);
+                    
+                    $('#editUserModal').modal('show');
+                } else {
+                    toastr.error('Failed to load user data');
+                }
+            },
+            error: function() {
+                toastr.error('Failed to load user data');
+            }
+        });
+    });
+    
+    // Submit Edit User Form
+    $('#editUserForm').submit(function(e) {
+        e.preventDefault();
+        
+        $.ajax({
+            url: 'admin_ajax/update_user.php',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+                $('#editUserForm button[type="submit"]').prop('disabled', true)
+                    .html('<i class="anticon anticon-loading anticon-spin"></i> Updating...');
+            },
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    $('#editUserModal').modal('hide');
+                    usersTable.ajax.reload();
+                } else {
+                    toastr.error(response.message || 'Failed to update user');
+                }
+            },
+            error: function() {
+                toastr.error('Failed to update user');
+            },
+            complete: function() {
+                $('#editUserForm button[type="submit"]').prop('disabled', false)
+                    .html('Update User');
+            }
+        });
+    });
+    
+    // 🗑️ Delete User (Suspend)
+    $('#usersTable').on('click', '.delete-user', function() {
+        const userId = $(this).data('id');
+        
+        if (!confirm('Are you sure you want to suspend this user? They will not be removed from the database but will no longer appear in the users table.')) {
+            return;
+        }
+        
+        $.ajax({
+            url: 'admin_ajax/delete_user.php',
+            type: 'POST',
+            data: { id: userId },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    usersTable.ajax.reload();
+                } else {
+                    toastr.error(response.message || 'Failed to suspend user');
+                }
+            },
+            error: function() {
+                toastr.error('Failed to suspend user');
+            }
+        });
+    });
+    
     // 📧 Send Mail to User
     $('#usersTable').on('click', '.send-mail-user', function() {
         const userId = $(this).data('id');

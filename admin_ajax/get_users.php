@@ -4,39 +4,77 @@ require_once '../../config.php';
 #require_once 'admin_auth.php';
 
 $columns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
-$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != 'suspended'";
+$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :suspended";
+$params = ['suspended' => 'suspended'];
 
 // Search filter
-if (isset($_POST['search']['value'])) {
-    $search = $_POST['search']['value'];
-    $query .= " AND (first_name LIKE '%$search%' 
-                OR last_name LIKE '%$search%' 
-                OR email LIKE '%$search%')";
+$searchValue = '';
+if (isset($_POST['search']['value']) && !empty($_POST['search']['value'])) {
+    $searchValue = $_POST['search']['value'];
+    $query .= " AND (first_name LIKE :search1 
+                OR last_name LIKE :search2 
+                OR email LIKE :search3)";
+    $params['search1'] = '%' . $searchValue . '%';
+    $params['search2'] = '%' . $searchValue . '%';
+    $params['search3'] = '%' . $searchValue . '%';
 }
 
-// Ordering
+// Ordering - sanitize column and direction
 if (isset($_POST['order'])) {
-    $column = $columns[$_POST['order'][0]['column']];
-    $dir = $_POST['order'][0]['dir'];
-    $query .= " ORDER BY $column $dir";
+    $columnIndex = intval($_POST['order'][0]['column']);
+    if (isset($columns[$columnIndex])) {
+        $column = $columns[$columnIndex];
+        $dir = strtoupper($_POST['order'][0]['dir']) === 'DESC' ? 'DESC' : 'ASC';
+        $query .= " ORDER BY $column $dir";
+    }
 } else {
     $query .= " ORDER BY id DESC";
 }
 
-// Pagination
-if ($_POST['length'] != -1) {
-    $start = $_POST['start'];
-    $length = $_POST['length'];
-    $query .= " LIMIT $start, $length";
+// Pagination - sanitize integers
+if (isset($_POST['length']) && $_POST['length'] != -1) {
+    $start = intval($_POST['start']);
+    $length = intval($_POST['length']);
+    $query .= " LIMIT :start, :length";
+    $params['start'] = $start;
+    $params['length'] = $length;
 }
 
 $stmt = $pdo->prepare($query);
+
+// Bind pagination parameters separately as integers
+if (isset($params['start']) && isset($params['length'])) {
+    $stmt->bindValue(':start', $params['start'], PDO::PARAM_INT);
+    $stmt->bindValue(':length', $params['length'], PDO::PARAM_INT);
+    unset($params['start'], $params['length']);
+}
+
+// Bind other parameters
+foreach ($params as $key => $value) {
+    $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+}
+
 $stmt->execute();
 $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Total records (excluding suspended users)
 $totalRecords = $pdo->query("SELECT COUNT(*) FROM users WHERE status != 'suspended'")->fetchColumn();
-$totalFiltered = $totalRecords;
+
+// Calculate filtered total if search is applied
+if (!empty($searchValue)) {
+    $countQuery = "SELECT COUNT(*) FROM users WHERE status != :suspended 
+                   AND (first_name LIKE :search1 OR last_name LIKE :search2 OR email LIKE :search3)";
+    $countStmt = $pdo->prepare($countQuery);
+    $countStmt->execute([
+        'suspended' => 'suspended',
+        'search1' => '%' . $searchValue . '%',
+        'search2' => '%' . $searchValue . '%',
+        'search3' => '%' . $searchValue . '%'
+    ]);
+    $totalFiltered = $countStmt->fetchColumn();
+} else {
+    $totalFiltered = $totalRecords;
+}
 
 $data = [];
 foreach ($result as $row) {

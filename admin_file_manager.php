@@ -289,10 +289,32 @@ $(document).ready(function() {
     loadStats();
     
     function loadStats() {
-        $('#totalFiles').text('127');
-        $('#totalDocs').text('45');
-        $('#totalImages').text('82');
-        $('#storageUsed').text('2.3 GB');
+        $.get('admin_ajax/get_file_stats.php', function(response) {
+            if (response.success) {
+                $('#totalFiles').text(response.stats.total_files);
+                $('#totalDocs').text(response.stats.total_docs);
+                $('#totalImages').text(response.stats.total_images);
+                $('#storageUsed').text(formatFileSize(response.stats.total_size));
+            } else {
+                $('#totalFiles').text('0');
+                $('#totalDocs').text('0');
+                $('#totalImages').text('0');
+                $('#storageUsed').text('0 B');
+            }
+        }).fail(function() {
+            $('#totalFiles').text('--');
+            $('#totalDocs').text('--');
+            $('#totalImages').text('--');
+            $('#storageUsed').text('--');
+        });
+    }
+    
+    function formatFileSize(bytes) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 });
 

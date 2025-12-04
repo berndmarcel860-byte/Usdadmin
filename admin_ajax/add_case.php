@@ -42,6 +42,7 @@ try {
     // === 1️⃣ Insert new case ===
     $currencyType = $data['currency_type'] ?? 'fiat';
     $cryptoCurrencyId = !empty($data['crypto_currency_id']) ? (int)$data['crypto_currency_id'] : null;
+    $assignedAdminId = !empty($data['admin_id']) ? (int)$data['admin_id'] : null;
     
     if ($currencyType === 'crypto') {
         $stmt = $pdo->prepare("
@@ -55,7 +56,7 @@ try {
             ':crypto_currency_id' => $cryptoCurrencyId,
             ':crypto_amount' => (float)$data['reported_amount'],
             ':description' => trim($data['description']),
-            ':admin_id' => !empty($data['admin_id']) ? (int)$data['admin_id'] : null
+            ':admin_id' => $assignedAdminId
         ]);
     } else {
         $stmt = $pdo->prepare("
@@ -68,7 +69,7 @@ try {
             ':platform_id' => (int)$data['platform_id'],
             ':reported_amount' => (float)$data['reported_amount'],
             ':description' => trim($data['description']),
-            ':admin_id' => !empty($data['admin_id']) ? (int)$data['admin_id'] : null
+            ':admin_id' => $assignedAdminId
         ]);
     }
     $caseId = $pdo->lastInsertId();

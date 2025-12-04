@@ -82,8 +82,9 @@ try {
     // Execute query
     $stmt = $pdo->prepare($query);
     
+    $paramCount = count($params);
     foreach ($params as $i => $param) {
-        if ($i >= count($params) - 2) {
+        if ($i >= $paramCount - 2) {
             $stmt->bindValue($i + 1, $param, PDO::PARAM_INT);
         } else {
             $stmt->bindValue($i + 1, $param, PDO::PARAM_STR);

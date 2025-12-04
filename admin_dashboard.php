@@ -315,9 +315,9 @@ $recentUsers = $pdo->query("
                                             <i class="anticon anticon-trophy card-icon"></i>
                                         </div>
                                         <div class="m-l-15">
-                                            <h2 class="m-b-0"><?= $cryptoStats['top_crypto'] ? $cryptoStats['top_crypto']['symbol'] : 'N/A' ?></h2>
+                                            <h2 class="m-b-0"><?= $cryptoStats['top_crypto'] ? htmlspecialchars($cryptoStats['top_crypto']['symbol']) : 'N/A' ?></h2>
                                             <p class="m-b-0 text-muted">Top Crypto</p>
-                                            <small class="text-muted"><?= $cryptoStats['top_crypto'] ? $cryptoStats['top_crypto']['case_count'] . ' cases' : 'No data' ?></small>
+                                            <small class="text-muted"><?= $cryptoStats['top_crypto'] ? htmlspecialchars($cryptoStats['top_crypto']['case_count']) . ' cases' : 'No data' ?></small>
                                         </div>
                                     </div>
                                 </div>

@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS `crypto_exchange_rates` (
   CONSTRAINT `fk_exchange_rate_crypto` FOREIGN KEY (`crypto_currency_id`) REFERENCES `cryptocurrencies` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Insert initial exchange rates (placeholder values, should be updated via API)
+-- Insert initial exchange rates (NULL values indicate rates need to be updated)
+-- Rates should be updated via API integration
 INSERT INTO `crypto_exchange_rates` (`crypto_currency_id`, `usd_rate`) 
-SELECT `id`, 0.00 FROM `cryptocurrencies`;
+SELECT `id`, NULL FROM `cryptocurrencies`;

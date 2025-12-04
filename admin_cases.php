@@ -104,7 +104,7 @@ $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FRO
                                     try {
                                         $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC")->fetchAll();
                                         foreach ($cryptos as $crypto) {
-                                            echo '<option value="' . $crypto['id'] . '">' . htmlspecialchars($crypto['symbol']) . ' - ' . htmlspecialchars($crypto['name']) . '</option>';
+                                            echo '<option value="' . htmlspecialchars($crypto['id']) . '">' . htmlspecialchars($crypto['symbol']) . ' - ' . htmlspecialchars($crypto['name']) . '</option>';
                                         }
                                     } catch (PDOException $e) {
                                         // Table might not exist yet

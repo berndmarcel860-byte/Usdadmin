@@ -384,6 +384,15 @@ $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FRO
 
 <script>
 $(document).ready(function() {
+    // Debug: Log crypto options count on page load
+    const cryptoOptionsCount = $('#addCryptoId option').length;
+    console.log('Page loaded - Crypto options available:', cryptoOptionsCount);
+    if (cryptoOptionsCount > 1) {
+        console.log('Cryptocurrencies are loaded and available!');
+    } else {
+        console.log('WARNING: No cryptocurrencies loaded. Check database.');
+    }
+    
     // Initialize DataTable
     const casesTable = $('#casesTable').DataTable({
         processing: true,
@@ -827,25 +836,42 @@ $(document).ready(function() {
     // Currency type switching for Add Case Modal
     $('#addCurrencyType').change(function() {
         const currencyType = $(this).val();
+        console.log('Currency type changed to:', currencyType);
+        
         if (currencyType === 'crypto') {
             // Check if cryptocurrencies are available
             const cryptoOptions = $('#addCryptoId option').length;
+            console.log('Number of crypto options:', cryptoOptions);
+            
             if (cryptoOptions <= 1) { // Only default "Select Cryptocurrency" option
                 toastr.warning('No cryptocurrencies available. Please run migration_add_crypto_support.sql first.');
                 $(this).val('fiat'); // Reset to fiat
                 return;
             }
             
+            console.log('Showing crypto dropdown');
             $('#addCryptoSelect').show();
+            $('#addCryptoSelect').removeClass('d-none').addClass('d-block'); // Bootstrap utility
             $('#addCryptoId').prop('required', true);
             $('#addAmountLabel').text('Reported Amount (Crypto)');
-            $('#addCryptoHint').show();
+            
+            // Check if crypto hint exists, if not it's okay
+            if ($('#addCryptoHint').length > 0) {
+                $('#addCryptoHint').show();
+            }
+            
             $('#addReportedAmount').attr('step', '0.00000001');
+            
+            console.log('Crypto dropdown visibility:', $('#addCryptoSelect').is(':visible'));
         } else {
             $('#addCryptoSelect').hide();
             $('#addCryptoId').prop('required', false);
             $('#addAmountLabel').text('Reported Amount (USD)');
-            $('#addCryptoHint').hide();
+            
+            if ($('#addCryptoHint').length > 0) {
+                $('#addCryptoHint').hide();
+            }
+            
             $('#addReportedAmount').attr('step', '0.01');
         }
     });

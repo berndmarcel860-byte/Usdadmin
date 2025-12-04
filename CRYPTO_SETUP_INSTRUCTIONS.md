@@ -147,6 +147,19 @@ SELECT id, symbol, name, is_active FROM cryptocurrencies WHERE is_active = 1;
 49. THETA - Theta Network
 50. AXS - Axie Infinity
 
+## Updating Cryptocurrency Prices
+
+The system integrates with **Kraken's free public API** to fetch real-time cryptocurrency prices:
+
+1. Go to **Cryptocurrency Management** page in admin panel
+2. Click the **"Update Prices"** button
+3. Prices for supported cryptocurrencies will be fetched from Kraken and stored in the database
+4. These prices are used to display USD equivalents for crypto cases
+
+**Supported by Kraken API:** BTC, ETH, USDT, USDC, XRP, ADA, DOGE, SOL, DOT, MATIC, LTC, LINK, UNI, ATOM, XLM, ALGO, AAVE, FIL, GRT, SAND, MANA, AXS
+
+**Note:** Not all cryptocurrencies in the database may be available on Kraken. For unsupported coins, you can manually set exchange rates in the crypto management interface or they will show without USD equivalent.
+
 ## Support
 
 If you encounter any issues not covered in this guide, please check:

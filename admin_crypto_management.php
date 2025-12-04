@@ -108,6 +108,9 @@ try {
                     <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCryptoModal">
                         <i class="anticon anticon-plus"></i> Add Cryptocurrency
                     </button>
+                    <button class="btn btn-warning btn-sm" id="updatePricesBtn">
+                        <i class="anticon anticon-sync"></i> Update Prices
+                    </button>
                     <button class="btn btn-info btn-sm" id="refreshCryptos">
                         <i class="anticon anticon-reload"></i> Refresh
                     </button>
@@ -318,6 +321,33 @@ $(document).ready(function() {
     // Refresh button
     $('#refreshCryptos').click(function() {
         cryptoTable.ajax.reload();
+    });
+    
+    // Update prices from Kraken API
+    $('#updatePricesBtn').click(function() {
+        const btn = $(this);
+        btn.prop('disabled', true)
+           .html('<i class="anticon anticon-loading anticon-spin"></i> Updating...');
+        
+        $.ajax({
+            url: 'admin_ajax/update_crypto_prices.php',
+            type: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    cryptoTable.ajax.reload();
+                } else {
+                    toastr.warning(response.message || 'Some prices could not be updated');
+                }
+            },
+            error: function() {
+                toastr.error('Failed to update cryptocurrency prices');
+            },
+            complete: function() {
+                btn.prop('disabled', false)
+                   .html('<i class="anticon anticon-sync"></i> Update Prices');
+            }
+        });
     });
     
     // Add cryptocurrency

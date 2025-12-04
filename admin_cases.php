@@ -416,28 +416,53 @@ $(document).ready(function() {
                 }
             },
             { 
-                data: 'reported_amount',
-                render: function(data) {
-                    return '$' + parseFloat(data).toFixed(2);
+                data: null,
+                render: function(data, type, row) {
+                    if (row.currency_type === 'crypto' && row.crypto_reported_amount) {
+                        const cryptoAmount = parseFloat(row.crypto_reported_amount);
+                        const cryptoSymbol = row.crypto_symbol || 'CRYPTO';
+                        let display = `${cryptoAmount.toFixed(8)} ${cryptoSymbol}`;
+                        
+                        // Show USD equivalent if available
+                        if (row.usd_equivalent) {
+                            display += `<br><small class="text-muted">≈ $${parseFloat(row.usd_equivalent).toFixed(2)}</small>`;
+                        }
+                        return display;
+                    } else {
+                        return '$' + parseFloat(data || 0).toFixed(2);
+                    }
                 }
             },
             { 
-                data: 'recovered_amount',
+                data: null,
                 render: function(data, type, row) {
-                    const recovered = parseFloat(data || 0);
-                    const reported = parseFloat(row.reported_amount || 0);
-                    const percentage = reported > 0 ? (recovered / reported * 100) : 0;
+                    let recovered, reported, percentage, recoveredDisplay, reportedDisplay;
+                    
+                    if (row.currency_type === 'crypto') {
+                        recovered = parseFloat(row.crypto_recovered_amount || 0);
+                        reported = parseFloat(row.crypto_reported_amount || 0);
+                        const cryptoSymbol = row.crypto_symbol || 'CRYPTO';
+                        recoveredDisplay = `${recovered.toFixed(8)} ${cryptoSymbol}`;
+                        reportedDisplay = `${reported.toFixed(8)} ${cryptoSymbol}`;
+                    } else {
+                        recovered = parseFloat(row.recovered_amount || 0);
+                        reported = parseFloat(row.reported_amount || 0);
+                        recoveredDisplay = `$${recovered.toFixed(2)}`;
+                        reportedDisplay = `$${reported.toFixed(2)}`;
+                    }
+                    
+                    percentage = reported > 0 ? (recovered / reported * 100) : 0;
                     
                     return `
                         <div>
-                            <strong>$${recovered.toFixed(2)}</strong>
+                            <strong>${recoveredDisplay}</strong>
                             <div class="progress" style="height: 5px;">
                                 <div class="progress-bar" 
                                      role="progressbar" 
                                      style="width: ${percentage}%">
                                 </div>
                             </div>
-                            <small>${percentage.toFixed(1)}% of $${reported.toFixed(2)}</small>
+                            <small>${percentage.toFixed(1)}% of ${reportedDisplay}</small>
                         </div>
                     `;
                 }

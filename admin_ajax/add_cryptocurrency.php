@@ -32,7 +32,7 @@ try {
     
     // Insert cryptocurrency
     $stmt = $pdo->prepare("
-        INSERT INTO cryptocurrencies (symbol, name, rank, icon_url, is_active, created_at)
+        INSERT INTO cryptocurrencies (symbol, name, `rank`, icon_url, is_active, created_at)
         VALUES (?, ?, ?, ?, ?, NOW())
     ");
     $stmt->execute([$symbol, $name, $rank, $iconUrl, $isActive]);

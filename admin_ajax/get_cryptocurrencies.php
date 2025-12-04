@@ -66,12 +66,12 @@ try {
     $orderColumn = isset($_POST['order'][0]['column']) ? (int)$_POST['order'][0]['column'] : 0;
     $orderDirection = isset($_POST['order'][0]['dir']) && strtoupper($_POST['order'][0]['dir']) === 'DESC' ? 'DESC' : 'ASC';
     
-    $columns = ['c.rank', 'c.symbol', 'c.name', 'er.usd_rate'];
+    $columns = ['c.`rank`', 'c.symbol', 'c.name', 'er.usd_rate'];
     
     if (isset($columns[$orderColumn])) {
         $query .= " ORDER BY {$columns[$orderColumn]} $orderDirection";
     } else {
-        $query .= " ORDER BY c.rank ASC";
+        $query .= " ORDER BY c.`rank` ASC";
     }
     
     // Pagination

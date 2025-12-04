@@ -103,7 +103,7 @@ $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FRO
                                     <?php
                                     $cryptosAvailable = false;
                                     try {
-                                        $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC")->fetchAll();
+                                        $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY `rank` ASC")->fetchAll();
                                         if (count($cryptos) > 0) {
                                             $cryptosAvailable = true;
                                             foreach ($cryptos as $crypto) {

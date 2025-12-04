@@ -61,7 +61,7 @@ try {
 echo "<hr>";
 echo "<h3>Test 4: Sample Cryptocurrency Data</h3>";
 try {
-    $cryptos = $pdo->query("SELECT id, symbol, name, rank, is_active FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+    $cryptos = $pdo->query("SELECT id, symbol, name, `rank`, is_active FROM cryptocurrencies WHERE is_active = 1 ORDER BY `rank` ASC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
     
     if (count($cryptos) > 0) {
         echo "✅ Sample data (first 10 active cryptocurrencies):<br><br>";
@@ -89,7 +89,7 @@ try {
 echo "<hr>";
 echo "<h3>Test 5: Dropdown HTML Generation Test</h3>";
 try {
-    $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC")->fetchAll();
+    $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY `rank` ASC")->fetchAll();
     echo "Number of options that would be generated: <strong>" . count($cryptos) . "</strong><br>";
     
     if (count($cryptos) > 0) {

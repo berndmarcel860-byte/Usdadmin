@@ -35,7 +35,7 @@ try {
     // Update cryptocurrency
     $stmt = $pdo->prepare("
         UPDATE cryptocurrencies 
-        SET symbol = ?, name = ?, rank = ?, icon_url = ?, is_active = ?
+        SET symbol = ?, name = ?, `rank` = ?, icon_url = ?, is_active = ?
         WHERE id = ?
     ");
     $stmt->execute([$symbol, $name, $rank, $iconUrl, $isActive, $cryptoId]);

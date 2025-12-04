@@ -241,7 +241,7 @@ function sendRecoveryUpdateEmail($pdo, $userData, $caseId, $newAmount, $totalAft
             $currencySymbol = ' ' . $userData['crypto_symbol'];
             $amountPrecision = 8;
         } else {
-            $currencySymbol = ' €';
+            $currencySymbol = ' $';
         }
         
         $vars = [

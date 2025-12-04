@@ -419,7 +419,7 @@ $(document).ready(function() {
                 data: null,
                 render: function(data, type, row) {
                     if (row.currency_type === 'crypto' && row.crypto_reported_amount) {
-                        const cryptoAmount = parseFloat(row.crypto_reported_amount);
+                        const cryptoAmount = parseFloat(row.crypto_reported_amount || 0);
                         const cryptoSymbol = row.crypto_symbol || 'CRYPTO';
                         let display = `${cryptoAmount.toFixed(8)} ${cryptoSymbol}`;
                         
@@ -429,7 +429,7 @@ $(document).ready(function() {
                         }
                         return display;
                     } else {
-                        return '$' + parseFloat(data || 0).toFixed(2);
+                        return '$' + parseFloat(row.reported_amount || 0).toFixed(2);
                     }
                 }
             },

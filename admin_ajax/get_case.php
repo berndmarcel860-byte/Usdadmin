@@ -12,7 +12,7 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $caseId = (int)$_GET['id'];
 
 try {
-    // Get case details
+    // Get case details including cryptocurrency information
     $stmt = $pdo->prepare("
         SELECT 
             c.*, 
@@ -20,10 +20,17 @@ try {
             u.last_name AS user_last_name,
             u.email AS user_email,
             p.name AS platform_name,
-            (SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = c.id) AS recovered_amount
+            cr.symbol AS crypto_symbol,
+            cr.name AS crypto_name,
+            cr.code AS crypto_code,
+            cex.usd_rate AS crypto_usd_rate,
+            (SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = c.id) AS recovered_amount,
+            (SELECT SUM(crypto_amount) FROM case_recovery_transactions WHERE case_id = c.id AND currency_type = 'crypto') AS crypto_recovered_sum
         FROM cases c
         LEFT JOIN users u ON c.user_id = u.id
         LEFT JOIN scam_platforms p ON c.platform_id = p.id
+        LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
+        LEFT JOIN crypto_exchange_rates cex ON cr.id = cex.cryptocurrency_id
         WHERE c.id = ?
     ");
     $stmt->execute([$caseId]);
@@ -52,9 +59,14 @@ try {
     
     // Get recovery transactions
     $stmt = $pdo->prepare("
-        SELECT rt.*, a.first_name AS admin_first_name, a.last_name AS admin_last_name
+        SELECT rt.*, 
+               a.first_name AS admin_first_name, 
+               a.last_name AS admin_last_name,
+               cr.symbol AS crypto_symbol,
+               cr.code AS crypto_code
         FROM case_recovery_transactions rt
         LEFT JOIN admins a ON rt.processed_by = a.id
+        LEFT JOIN cryptocurrencies cr ON rt.crypto_currency_id = cr.id
         WHERE rt.case_id = ?
         ORDER BY rt.transaction_date DESC
     ");

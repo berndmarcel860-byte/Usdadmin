@@ -577,18 +577,49 @@ $(document).ready(function() {
         loadCaseDetails(caseId);
     });
 
+    // Global variable to store current case data for recovery
+    let currentCaseData = null;
+    
     // Add Recovery from Details Modal
     $('#addRecoveryBtn').click(function() {
         const caseId = $('#recoveryCaseId').val();
         const caseNumber = $('#caseDetailsNumber').text();
-        const reportedAmount = parseFloat($('#caseDetailsAmount').text().replace('$', ''));
-        const recoveredAmount = parseFloat($('#caseDetailsRecovered').text().replace('$', ''));
         
-        $('#recoveryCaseId').val(caseId);
-        $('#addRecoveryModal .modal-title').text(`Add Recovery - ${caseNumber}`);
-        $('#totalRecovered').text('$' + recoveredAmount.toFixed(2));
-        $('#remainingBalance').text('$' + (reportedAmount - recoveredAmount).toFixed(2));
-        $('#addRecoveryModal').modal('show');
+        // Check if we have case data stored
+        if (currentCaseData) {
+            let reportedAmount, recoveredAmount, reportedDisplay, recoveredDisplay, remainingDisplay;
+            
+            if (currentCaseData.currency_type === 'crypto' && currentCaseData.crypto_reported_amount) {
+                const cryptoSymbol = currentCaseData.crypto_symbol || currentCaseData.crypto_code || 'CRYPTO';
+                reportedAmount = parseFloat(currentCaseData.crypto_reported_amount || 0);
+                recoveredAmount = parseFloat(currentCaseData.crypto_recovered_sum || currentCaseData.crypto_recovered_amount || 0);
+                const remaining = reportedAmount - recoveredAmount;
+                
+                reportedDisplay = `${recoveredAmount.toFixed(8)} ${cryptoSymbol}`;
+                remainingDisplay = `${remaining.toFixed(8)} ${cryptoSymbol}`;
+                
+                // Store currency type for form submission
+                $('#addRecoveryModal').data('currency-type', 'crypto');
+                $('#addRecoveryModal').data('crypto-currency-id', currentCaseData.crypto_currency_id);
+                $('#addRecoveryModal').data('crypto-symbol', cryptoSymbol);
+            } else {
+                reportedAmount = parseFloat(currentCaseData.reported_amount || 0);
+                recoveredAmount = parseFloat(currentCaseData.recovered_amount || 0);
+                const remaining = reportedAmount - recoveredAmount;
+                
+                reportedDisplay = '$' + recoveredAmount.toFixed(2);
+                remainingDisplay = '$' + remaining.toFixed(2);
+                
+                // Store currency type for form submission
+                $('#addRecoveryModal').data('currency-type', 'fiat');
+            }
+            
+            $('#recoveryCaseId').val(caseId);
+            $('#addRecoveryModal .modal-title').text(`Add Recovery - ${caseNumber}`);
+            $('#totalRecovered').html(reportedDisplay);
+            $('#remainingBalance').html(remainingDisplay);
+            $('#addRecoveryModal').modal('show');
+        }
     });
 
     // Initialize recovery modal with case data
@@ -612,7 +643,9 @@ $(document).ready(function() {
         const postData = {
             case_id: $('#recoveryCaseId').val(),
             amount: parseFloat($('#recoveryAmount').val()),
-            notes: $('#recoveryNotes').val()
+            notes: $('#recoveryNotes').val(),
+            currency_type: $('#addRecoveryModal').data('currency-type') || 'fiat',
+            crypto_currency_id: $('#addRecoveryModal').data('crypto-currency-id') || null
         };
 
         $.ajax({
@@ -754,9 +787,32 @@ $(document).ready(function() {
         $.get('admin_ajax/get_case.php?id=' + caseId, function(response) {
             if (response.success) {
                 const caseData = response.case;
-                const recovered = parseFloat(caseData.recovered_amount || 0);
-                const reported = parseFloat(caseData.reported_amount || 1);
-                const percentage = (recovered / reported * 100).toFixed(1);
+                let recovered, reported, percentage, reportedDisplay, recoveredDisplay;
+                
+                // Check if it's a crypto case
+                if (caseData.currency_type === 'crypto' && caseData.crypto_reported_amount) {
+                    recovered = parseFloat(caseData.crypto_recovered_sum || caseData.crypto_recovered_amount || 0);
+                    reported = parseFloat(caseData.crypto_reported_amount || 1);
+                    const cryptoSymbol = caseData.crypto_symbol || caseData.crypto_code || 'CRYPTO';
+                    
+                    reportedDisplay = `${reported.toFixed(8)} ${cryptoSymbol}`;
+                    recoveredDisplay = `${recovered.toFixed(8)} ${cryptoSymbol}`;
+                    
+                    // Add USD equivalent if available
+                    if (caseData.crypto_usd_rate) {
+                        const usdReported = (reported * parseFloat(caseData.crypto_usd_rate)).toFixed(2);
+                        const usdRecovered = (recovered * parseFloat(caseData.crypto_usd_rate)).toFixed(2);
+                        reportedDisplay += `<br><small class="text-muted">≈ $${usdReported}</small>`;
+                        recoveredDisplay += `<br><small class="text-muted">≈ $${usdRecovered}</small>`;
+                    }
+                } else {
+                    recovered = parseFloat(caseData.recovered_amount || 0);
+                    reported = parseFloat(caseData.reported_amount || 1);
+                    reportedDisplay = '$' + reported.toFixed(2);
+                    recoveredDisplay = '$' + recovered.toFixed(2);
+                }
+                
+                percentage = (recovered / reported * 100).toFixed(1);
                 
                 // Set basic info
                 $('#recoveryCaseId').val(caseData.id);
@@ -764,8 +820,8 @@ $(document).ready(function() {
                 $('#caseDetailsUser').text(caseData.user_first_name + ' ' + caseData.user_last_name);
                 $('#caseDetailsUserEmail').text(caseData.user_email);
                 $('#caseDetailsPlatform').text(caseData.platform_name);
-                $('#caseDetailsAmount').text('$' + reported.toFixed(2));
-                $('#caseDetailsRecovered').text('$' + recovered.toFixed(2));
+                $('#caseDetailsAmount').html(reportedDisplay);
+                $('#caseDetailsRecovered').html(recoveredDisplay);
                 $('#caseDetailsStatus').html(`
                     <span class="badge badge-${getStatusClass(caseData.status)}">
                         ${caseData.status.replace(/_/g, ' ')}
@@ -773,6 +829,9 @@ $(document).ready(function() {
                 `);
                 $('#caseDetailsDescription').text(caseData.description);
                 $('#caseDetailsAdminNotes').text(caseData.admin_notes || 'No notes available');
+                
+                // Store case data for recovery modal
+                currentCaseData = caseData;
                 
                 // Update progress bar
                 $('#caseDetailsProgress').css('width', percentage + '%')
@@ -785,19 +844,31 @@ $(document).ready(function() {
                 
                 if (response.recoveries && response.recoveries.length > 0) {
                     response.recoveries.forEach(recovery => {
+                        let amountDisplay;
+                        if (recovery.currency_type === 'crypto' && recovery.crypto_amount) {
+                            const cryptoSymbol = recovery.crypto_symbol || recovery.crypto_code || 'CRYPTO';
+                            amountDisplay = `${parseFloat(recovery.crypto_amount).toFixed(8)} ${cryptoSymbol}`;
+                        } else {
+                            amountDisplay = `$${parseFloat(recovery.amount).toFixed(2)}`;
+                        }
+                        
                         recoveriesTable.append(`
                             <tr>
                                 <td>${new Date(recovery.transaction_date).toLocaleString()}</td>
-                                <td>$${parseFloat(recovery.amount).toFixed(2)}</td>
+                                <td>${amountDisplay}</td>
                                 <td>${recovery.admin_first_name} ${recovery.admin_last_name}</td>
                                 <td>${recovery.notes || ''}</td>
                             </tr>
                         `);
                     });
-                    $('#caseDetailsTotalRecovered').text('$' + recovered.toFixed(2));
+                    $('#caseDetailsTotalRecovered').html(recoveredDisplay);
                 } else {
                     recoveriesTable.append('<tr><td colspan="4">No recovery transactions</td></tr>');
-                    $('#caseDetailsTotalRecovered').text('$0.00');
+                    if (caseData.currency_type === 'crypto') {
+                        $('#caseDetailsTotalRecovered').text('0.00000000 ' + (caseData.crypto_symbol || 'CRYPTO'));
+                    } else {
+                        $('#caseDetailsTotalRecovered').text('$0.00');
+                    }
                 }
                 
                 // Populate history

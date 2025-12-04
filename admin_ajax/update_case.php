@@ -52,11 +52,15 @@ $statusTranslations = [
 try {
     $pdo->beginTransaction();
     
-    // Get current case details including user info
+    // Get current case details including user info and crypto data
     $stmt = $pdo->prepare("
-        SELECT c.status, c.user_id, u.email, u.first_name, u.last_name, c.case_number
+        SELECT c.status, c.user_id, c.currency_type, c.crypto_currency_id,
+               c.crypto_reported_amount, c.crypto_recovered_amount,
+               cr.symbol AS crypto_symbol, cr.code AS crypto_code,
+               u.email, u.first_name, u.last_name, c.case_number
         FROM cases c
         JOIN users u ON c.user_id = u.id
+        LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
         WHERE c.id = ?
     ");
     $stmt->execute([$data['case_id']]);

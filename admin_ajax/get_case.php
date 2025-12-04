@@ -24,6 +24,7 @@ try {
             cr.name AS crypto_name,
             cr.code AS crypto_code,
             cex.usd_rate AS crypto_usd_rate,
+            -- Include NULL for legacy data compatibility (pre-crypto implementation)
             (SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = c.id AND (currency_type = 'fiat' OR currency_type IS NULL)) AS recovered_amount,
             (SELECT SUM(crypto_amount) FROM case_recovery_transactions WHERE case_id = c.id AND currency_type = 'crypto') AS crypto_recovered_sum
         FROM cases c

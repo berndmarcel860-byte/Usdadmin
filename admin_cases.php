@@ -418,7 +418,8 @@ $(document).ready(function() {
             { 
                 data: null,
                 render: function(data, type, row) {
-                    if (row.currency_type === 'crypto' && row.crypto_reported_amount) {
+                    // Check if crypto case with valid crypto_reported_amount (including 0)
+                    if (row.currency_type === 'crypto' && (row.crypto_reported_amount !== null && row.crypto_reported_amount !== undefined)) {
                         const cryptoAmount = parseFloat(row.crypto_reported_amount || 0);
                         const cryptoSymbol = row.crypto_symbol || 'CRYPTO';
                         let display = `${cryptoAmount.toFixed(8)} ${cryptoSymbol}`;

@@ -101,16 +101,26 @@ $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FRO
                                 <select class="form-control" name="crypto_currency_id" id="addCryptoId">
                                     <option value="">Select Cryptocurrency</option>
                                     <?php
+                                    $cryptosAvailable = false;
                                     try {
                                         $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC")->fetchAll();
-                                        foreach ($cryptos as $crypto) {
-                                            echo '<option value="' . htmlspecialchars($crypto['id']) . '">' . htmlspecialchars($crypto['symbol']) . ' - ' . htmlspecialchars($crypto['name']) . '</option>';
+                                        if (count($cryptos) > 0) {
+                                            $cryptosAvailable = true;
+                                            foreach ($cryptos as $crypto) {
+                                                echo '<option value="' . htmlspecialchars($crypto['id']) . '">' . htmlspecialchars($crypto['symbol']) . ' - ' . htmlspecialchars($crypto['name']) . '</option>';
+                                            }
+                                        } else {
+                                            echo '<option value="" disabled>No cryptocurrencies available</option>';
                                         }
                                     } catch (PDOException $e) {
                                         // Table might not exist yet
+                                        echo '<option value="" disabled>Run migration_add_crypto_support.sql first</option>';
                                     }
                                     ?>
                                 </select>
+                                <?php if (!$cryptosAvailable): ?>
+                                <small class="text-danger">Please run migration_add_crypto_support.sql to enable cryptocurrency support</small>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -818,6 +828,14 @@ $(document).ready(function() {
     $('#addCurrencyType').change(function() {
         const currencyType = $(this).val();
         if (currencyType === 'crypto') {
+            // Check if cryptocurrencies are available
+            const cryptoOptions = $('#addCryptoId option').length;
+            if (cryptoOptions <= 1) { // Only default "Select Cryptocurrency" option
+                toastr.warning('No cryptocurrencies available. Please run migration_add_crypto_support.sql first.');
+                $(this).val('fiat'); // Reset to fiat
+                return;
+            }
+            
             $('#addCryptoSelect').show();
             $('#addCryptoId').prop('required', true);
             $('#addAmountLabel').text('Reported Amount (Crypto)');

@@ -123,11 +123,10 @@ try {
     
     // Update prices in database
     $updateStmt = $pdo->prepare("
-        INSERT INTO crypto_exchange_rates (cryptocurrency_id, usd_price, source, updated_at)
-        VALUES (:crypto_id, :price, 'kraken', NOW())
+        INSERT INTO crypto_exchange_rates (crypto_currency_id, usd_rate, updated_at)
+        VALUES (:crypto_id, :price, NOW())
         ON DUPLICATE KEY UPDATE 
-            usd_price = :price,
-            source = 'kraken',
+            usd_rate = :price,
             updated_at = NOW()
     ");
     
@@ -165,15 +164,13 @@ try {
     error_log("DB Error in update_crypto_prices.php: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'Database error while updating prices',
-        'error' => $e->getMessage()
+        'message' => 'Database error while updating prices. Please contact system administrator.'
     ]);
 } catch (Exception $e) {
     error_log("Error in update_crypto_prices.php: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'Failed to update cryptocurrency prices',
-        'error' => $e->getMessage()
+        'message' => 'Failed to update cryptocurrency prices. Please try again later.'
     ]);
 }
 ?>

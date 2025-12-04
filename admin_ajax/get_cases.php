@@ -14,14 +14,14 @@ try {
             p.name AS platform_name,
             cr.symbol AS crypto_symbol,
             cr.name AS crypto_name,
-            cer.usd_price AS crypto_usd_price,
+            cer.usd_rate AS crypto_usd_price,
             (SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = c.id) AS recovered_amount
         FROM cases c
         LEFT JOIN users u ON c.user_id = u.id
         LEFT JOIN admins a ON c.assigned_to = a.id
         LEFT JOIN scam_platforms p ON c.platform_id = p.id
         LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
-        LEFT JOIN crypto_exchange_rates cer ON cr.id = cer.cryptocurrency_id
+        LEFT JOIN crypto_exchange_rates cer ON cr.id = cer.crypto_currency_id
         ORDER BY c.created_at DESC
     ";
     

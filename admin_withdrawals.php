@@ -70,13 +70,20 @@ require_once 'admin_header.php';
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Currency Type</label>
+                        <select class="form-control" name="currency_type">
+                            <option value="">All Types</option>
+                            <option value="fiat">Fiat (USD)</option>
+                            <option value="crypto">Cryptocurrency</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Payment Method</label>
                         <select class="form-control" name="method_code">
                             <option value="">All Methods</option>
                             <option value="bank_transfer">Bank Transfer</option>
                             <option value="paypal">PayPal</option>
-                            <option value="bitcoin">Bitcoin</option>
-                            <option value="ethereum">Ethereum</option>
+                            <option value="crypto">Cryptocurrency</option>
                         </select>
                     </div>
                     <div class="form-group">

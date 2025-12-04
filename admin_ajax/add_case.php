@@ -40,18 +40,37 @@ try {
     $caseNumber = 'SCM-' . date('Y') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
     // === 1️⃣ Insert new case ===
-    $stmt = $pdo->prepare("
-        INSERT INTO cases (case_number, user_id, platform_id, reported_amount, status, description, admin_id, created_at, updated_at)
-        VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'open', :description, :admin_id, NOW(), NOW())
-    ");
-    $stmt->execute([
-        ':case_number' => $caseNumber,
-        ':user_id' => (int)$data['user_id'],
-        ':platform_id' => (int)$data['platform_id'],
-        ':reported_amount' => (float)$data['reported_amount'],
-        ':description' => trim($data['description']),
-        ':admin_id' => (int)$_SESSION['admin_id']
-    ]);
+    $currencyType = $data['currency_type'] ?? 'fiat';
+    $cryptoCurrencyId = !empty($data['crypto_currency_id']) ? (int)$data['crypto_currency_id'] : null;
+    
+    if ($currencyType === 'crypto') {
+        $stmt = $pdo->prepare("
+            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, crypto_currency_id, crypto_reported_amount, currency_type, status, description, assigned_to, created_at, updated_at)
+            VALUES (:case_number, :user_id, :platform_id, 0, :crypto_currency_id, :crypto_amount, 'crypto', 'open', :description, :admin_id, NOW(), NOW())
+        ");
+        $stmt->execute([
+            ':case_number' => $caseNumber,
+            ':user_id' => (int)$data['user_id'],
+            ':platform_id' => (int)$data['platform_id'],
+            ':crypto_currency_id' => $cryptoCurrencyId,
+            ':crypto_amount' => (float)$data['reported_amount'],
+            ':description' => trim($data['description']),
+            ':admin_id' => !empty($data['admin_id']) ? (int)$data['admin_id'] : null
+        ]);
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, currency_type, status, description, assigned_to, created_at, updated_at)
+            VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'fiat', 'open', :description, :admin_id, NOW(), NOW())
+        ");
+        $stmt->execute([
+            ':case_number' => $caseNumber,
+            ':user_id' => (int)$data['user_id'],
+            ':platform_id' => (int)$data['platform_id'],
+            ':reported_amount' => (float)$data['reported_amount'],
+            ':description' => trim($data['description']),
+            ':admin_id' => !empty($data['admin_id']) ? (int)$data['admin_id'] : null
+        ]);
+    }
     $caseId = $pdo->lastInsertId();
 
     // === 2️⃣ Record case status history ===

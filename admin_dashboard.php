@@ -241,6 +241,90 @@ $recentUsers = $pdo->query("
                         </div>
                     </div>
 
+                    <!-- Cryptocurrency Stats Row -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h5 class="m-t-20 m-b-15">Cryptocurrency Overview</h5>
+                        </div>
+                        <?php
+                        // Get crypto statistics
+                        try {
+                            $cryptoStats = [
+                                'crypto_cases' => $pdo->query("SELECT COUNT(*) FROM cases WHERE currency_type = 'crypto'")->fetchColumn(),
+                                'crypto_withdrawals' => $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE currency_type = 'crypto' AND status = 'pending'")->fetchColumn(),
+                                'active_cryptos' => $pdo->query("SELECT COUNT(*) FROM cryptocurrencies WHERE is_active = 1")->fetchColumn(),
+                                'top_crypto' => $pdo->query("SELECT c.symbol, c.name, COUNT(cs.id) as case_count FROM cases cs LEFT JOIN cryptocurrencies c ON cs.crypto_currency_id = c.id WHERE cs.currency_type = 'crypto' GROUP BY cs.crypto_currency_id ORDER BY case_count DESC LIMIT 1")->fetch()
+                            ];
+                        } catch (PDOException $e) {
+                            $cryptoStats = ['crypto_cases' => 0, 'crypto_withdrawals' => 0, 'active_cryptos' => 0, 'top_crypto' => false];
+                        }
+                        ?>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card dashboard-card">
+                                <div class="card-body">
+                                    <div class="media align-items-center">
+                                        <div class="avatar avatar-icon avatar-lg avatar-yellow">
+                                            <i class="anticon anticon-bitcoin card-icon"></i>
+                                        </div>
+                                        <div class="m-l-15">
+                                            <h2 class="m-b-0"><?= number_format($cryptoStats['crypto_cases']) ?></h2>
+                                            <p class="m-b-0 text-muted">Crypto Cases</p>
+                                            <small class="text-muted">Active cryptocurrency cases</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card dashboard-card">
+                                <div class="card-body">
+                                    <div class="media align-items-center">
+                                        <div class="avatar avatar-icon avatar-lg avatar-lime">
+                                            <i class="anticon anticon-wallet card-icon"></i>
+                                        </div>
+                                        <div class="m-l-15">
+                                            <h2 class="m-b-0"><?= number_format($cryptoStats['crypto_withdrawals']) ?></h2>
+                                            <p class="m-b-0 text-muted">Crypto Withdrawals</p>
+                                            <small class="text-warning">Pending approval</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card dashboard-card">
+                                <div class="card-body">
+                                    <div class="media align-items-center">
+                                        <div class="avatar avatar-icon avatar-lg avatar-indigo">
+                                            <i class="anticon anticon-stock card-icon"></i>
+                                        </div>
+                                        <div class="m-l-15">
+                                            <h2 class="m-b-0"><?= number_format($cryptoStats['active_cryptos']) ?></h2>
+                                            <p class="m-b-0 text-muted">Active Cryptos</p>
+                                            <small class="text-muted">Supported cryptocurrencies</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card dashboard-card">
+                                <div class="card-body">
+                                    <div class="media align-items-center">
+                                        <div class="avatar avatar-icon avatar-lg avatar-cyan">
+                                            <i class="anticon anticon-trophy card-icon"></i>
+                                        </div>
+                                        <div class="m-l-15">
+                                            <h2 class="m-b-0"><?= $cryptoStats['top_crypto'] ? $cryptoStats['top_crypto']['symbol'] : 'N/A' ?></h2>
+                                            <p class="m-b-0 text-muted">Top Crypto</p>
+                                            <small class="text-muted"><?= $cryptoStats['top_crypto'] ? $cryptoStats['top_crypto']['case_count'] . ' cases' : 'No data' ?></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Financial Summary Card -->
                     <div class="row">
                         <div class="col-12">

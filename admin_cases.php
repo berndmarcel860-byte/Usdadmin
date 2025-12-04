@@ -88,8 +88,38 @@ $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FRO
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Reported Amount</label>
-                                <input type="number" step="0.01" class="form-control" name="reported_amount" required>
+                                <label>Currency Type</label>
+                                <select class="form-control" name="currency_type" id="addCurrencyType" required>
+                                    <option value="fiat">Fiat (USD)</option>
+                                    <option value="crypto">Cryptocurrency</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="addCryptoSelect" style="display:none;">
+                            <div class="form-group">
+                                <label>Cryptocurrency</label>
+                                <select class="form-control" name="crypto_currency_id" id="addCryptoId">
+                                    <option value="">Select Cryptocurrency</option>
+                                    <?php
+                                    try {
+                                        $cryptos = $pdo->query("SELECT id, symbol, name FROM cryptocurrencies WHERE is_active = 1 ORDER BY rank ASC")->fetchAll();
+                                        foreach ($cryptos as $crypto) {
+                                            echo '<option value="' . $crypto['id'] . '">' . htmlspecialchars($crypto['symbol']) . ' - ' . htmlspecialchars($crypto['name']) . '</option>';
+                                        }
+                                    } catch (PDOException $e) {
+                                        // Table might not exist yet
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label id="addAmountLabel">Reported Amount (USD)</label>
+                                <input type="number" step="0.00000001" class="form-control" name="reported_amount" id="addReportedAmount" required>
+                                <small class="text-muted" id="addCryptoHint" style="display:none;">Enter amount in crypto (supports up to 8 decimals)</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -783,5 +813,23 @@ $(document).ready(function() {
         };
         return statusClasses[status] || 'secondary';
     }
+    
+    // Currency type switching for Add Case Modal
+    $('#addCurrencyType').change(function() {
+        const currencyType = $(this).val();
+        if (currencyType === 'crypto') {
+            $('#addCryptoSelect').show();
+            $('#addCryptoId').prop('required', true);
+            $('#addAmountLabel').text('Reported Amount (Crypto)');
+            $('#addCryptoHint').show();
+            $('#addReportedAmount').attr('step', '0.00000001');
+        } else {
+            $('#addCryptoSelect').hide();
+            $('#addCryptoId').prop('required', false);
+            $('#addAmountLabel').text('Reported Amount (USD)');
+            $('#addCryptoHint').hide();
+            $('#addReportedAmount').attr('step', '0.01');
+        }
+    });
 });
 </script>

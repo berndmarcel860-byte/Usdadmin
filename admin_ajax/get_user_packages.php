@@ -32,11 +32,37 @@ try {
     $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
     $currentAdminId = $_SESSION['admin_id'];
     
+    // Check if tables exist first
+    $tablesExist = true;
+    try {
+        $checkTables = $pdo->query("SHOW TABLES LIKE 'packages'");
+        if ($checkTables->rowCount() == 0) {
+            $tablesExist = false;
+        }
+        $checkTables = $pdo->query("SHOW TABLES LIKE 'user_packages'");
+        if ($checkTables->rowCount() == 0) {
+            $tablesExist = false;
+        }
+    } catch (PDOException $e) {
+        $tablesExist = false;
+    }
+    
+    if (!$tablesExist) {
+        echo json_encode([
+            'draw' => $draw,
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => [],
+            'error' => 'Required tables (packages, user_packages) do not exist in database'
+        ]);
+        exit();
+    }
+    
     // Base query with role-based filtering
     $baseQuery = "
         FROM user_packages up
         INNER JOIN users u ON up.user_id = u.id
-        INNER JOIN packages p ON up.package_id = p.id
+        LEFT JOIN packages p ON up.package_id = p.id
         WHERE u.status != 'suspended'
     ";
     
@@ -114,5 +140,11 @@ try {
     
 } catch (PDOException $e) {
     error_log("Get user packages error: " . $e->getMessage());
-    echo json_encode(['error' => 'Database error']);
+    echo json_encode([
+        'draw' => $draw ?? 1,
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Database error: ' . $e->getMessage()
+    ]);
 }

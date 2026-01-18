@@ -149,5 +149,11 @@ try {
     
 } catch (PDOException $e) {
     error_log("Get classified users error: " . $e->getMessage());
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode([
+        'draw' => $draw ?? 1,
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Database error: ' . $e->getMessage()
+    ]);
 }

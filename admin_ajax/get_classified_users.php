@@ -23,7 +23,7 @@ try {
     $classification = isset($_POST['classification']) ? $_POST['classification'] : '';
     
     // Build WHERE clause based on classification
-    $where = "1=1";
+    $where = "u.status != 'suspended'";  // Changed from "1=1" to meaningful default
     $joins = "";
     $whereExtra = "";
     

@@ -35,9 +35,9 @@ try {
     // Base query with role-based filtering
     $baseQuery = "
         FROM user_packages up
-        JOIN users u ON up.user_id = u.id
-        JOIN packages p ON up.package_id = p.id
-        WHERE 1=1
+        INNER JOIN users u ON up.user_id = u.id
+        INNER JOIN packages p ON up.package_id = p.id
+        WHERE u.status != 'suspended'
     ";
     
     $params = [];

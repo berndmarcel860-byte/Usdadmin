@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $query = "
         SELECT 
             k.*, 
@@ -15,6 +19,12 @@ try {
     ";
     
     $params = [];
+    
+    // Role-based filtering: regular admins only see their own users' KYC requests
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
     
     // Apply filters
     if (!empty($_GET['status'])) {

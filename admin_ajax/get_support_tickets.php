@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
     $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
@@ -31,6 +35,12 @@ try {
     
     $params = [];
     
+    // Role-based filtering: regular admins only see tickets from their own users
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
+    
     if ($search) {
         $query .= " AND (t.ticket_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR t.subject LIKE ?)";
         $searchTerm = "%$search%";
@@ -45,6 +55,9 @@ try {
     $query .= " GROUP BY t.id";
     
     $countQuery = "SELECT COUNT(DISTINCT t.id) as total FROM support_tickets t LEFT JOIN users u ON t.user_id = u.id WHERE 1=1";
+    if ($currentAdminRole !== 'superadmin') {
+        $countQuery .= " AND u.admin_id = ?";
+    }
     if ($search) {
         $countQuery .= " AND (t.ticket_number LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR t.subject LIKE ?)";
     }
@@ -53,6 +66,9 @@ try {
     }
     
     $countParams = [];
+    if ($currentAdminRole !== 'superadmin') {
+        $countParams[] = $currentAdminId;
+    }
     if ($search) {
         $countParams = array_merge($countParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
     }

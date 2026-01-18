@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
     $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
@@ -20,10 +24,17 @@ try {
             t.template_key
         FROM email_logs e
         LEFT JOIN email_templates t ON e.template_id = t.id
+        LEFT JOIN users u ON e.recipient = u.email
         WHERE 1=1
     ";
     
     $params = [];
+    
+    // Role-based filtering: regular admins only see emails sent to their own users
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
     
     if ($search) {
         $query .= " AND (e.recipient LIKE ? OR e.subject LIKE ? OR e.status LIKE ?)";
@@ -31,13 +42,24 @@ try {
         $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm]);
     }
     
-    $countQuery = "SELECT COUNT(*) as total FROM email_logs e LEFT JOIN email_templates t ON e.template_id = t.id WHERE 1=1";
+    $countQuery = "SELECT COUNT(*) as total FROM email_logs e LEFT JOIN email_templates t ON e.template_id = t.id LEFT JOIN users u ON e.recipient = u.email WHERE 1=1";
+    if ($currentAdminRole !== 'superadmin') {
+        $countQuery .= " AND u.admin_id = ?";
+    }
     if ($search) {
         $countQuery .= " AND (e.recipient LIKE ? OR e.subject LIKE ? OR e.status LIKE ?)";
     }
     
+    $countParams = [];
+    if ($currentAdminRole !== 'superadmin') {
+        $countParams[] = $currentAdminId;
+    }
+    if ($search) {
+        $countParams = array_merge($countParams, [$searchTerm, $searchTerm, $searchTerm]);
+    }
+    
     $stmt = $pdo->prepare($countQuery);
-    $stmt->execute($search ? [$searchTerm, $searchTerm, $searchTerm] : []);
+    $stmt->execute($countParams);
     $totalRecords = $stmt->fetchColumn();
     
     $orderColumn = isset($_POST['order'][0]['column']) ? (int)$_POST['order'][0]['column'] : 0;

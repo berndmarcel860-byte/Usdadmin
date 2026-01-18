@@ -4,35 +4,109 @@
 
 require_once 'admin_header.php';
 
+// Get current admin role and ID
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+$currentAdminId = $_SESSION['admin_id'];
+$isSuperAdmin = ($currentAdminRole === 'superadmin');
+
 // Get classification statistics
 try {
+    // Build WHERE clause for role-based filtering
+    $adminFilter = $isSuperAdmin ? "" : " WHERE u.admin_id = :admin_id";
+    $adminFilterAnd = $isSuperAdmin ? "" : " AND u.admin_id = :admin_id";
+    
     // Total users
-    $totalUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users u" . $adminFilter);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $totalUsers = $stmt->fetchColumn();
     
     // Users with onboarding
-    $withOnboarding = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM user_onboarding")->fetchColumn();
-    $withCompletedOnboarding = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM user_onboarding WHERE completed = 1")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT uo.user_id) FROM user_onboarding uo JOIN users u ON uo.user_id = u.id" . $adminFilter);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withOnboarding = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT uo.user_id) FROM user_onboarding uo JOIN users u ON uo.user_id = u.id WHERE uo.completed = 1" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withCompletedOnboarding = $stmt->fetchColumn();
+    
     $withoutOnboarding = $totalUsers - $withOnboarding;
     
     // Users with packages
-    $withPackage = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM user_packages")->fetchColumn();
-    $withActivePackage = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM user_packages WHERE status = 'active'")->fetchColumn();
-    $withExpiredPackage = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM user_packages WHERE status = 'expired'")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT up.user_id) FROM user_packages up JOIN users u ON up.user_id = u.id" . $adminFilter);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withPackage = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT up.user_id) FROM user_packages up JOIN users u ON up.user_id = u.id WHERE up.status = 'active'" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withActivePackage = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT up.user_id) FROM user_packages up JOIN users u ON up.user_id = u.id WHERE up.status = 'expired'" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withExpiredPackage = $stmt->fetchColumn();
+    
     $withoutPackage = $totalUsers - $withPackage;
     
     // Users with cases
-    $withCases = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM cases")->fetchColumn();
-    $withActiveCases = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM cases WHERE status IN ('open', 'documents_required', 'under_review')")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT c.user_id) FROM cases c JOIN users u ON c.user_id = u.id" . $adminFilter);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withCases = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT c.user_id) FROM cases c JOIN users u ON c.user_id = u.id WHERE c.status IN ('open', 'documents_required', 'under_review')" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withActiveCases = $stmt->fetchColumn();
+    
     $withoutCases = $totalUsers - $withCases;
     
     // KYC Status
-    $withKYC = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM kyc_verification_requests")->fetchColumn();
-    $kycApproved = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM kyc_verification_requests WHERE status = 'approved'")->fetchColumn();
-    $kycPending = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM kyc_verification_requests WHERE status = 'pending'")->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT k.user_id) FROM kyc_verification_requests k JOIN users u ON k.user_id = u.id" . $adminFilter);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $withKYC = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT k.user_id) FROM kyc_verification_requests k JOIN users u ON k.user_id = u.id WHERE k.status = 'approved'" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $kycApproved = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT k.user_id) FROM kyc_verification_requests k JOIN users u ON k.user_id = u.id WHERE k.status = 'pending'" . $adminFilterAnd);
+    if (!$isSuperAdmin) {
+        $stmt->bindParam(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    $kycPending = $stmt->fetchColumn();
     
 } catch (PDOException $e) {
     $totalUsers = $withOnboarding = $withoutOnboarding = $withPackage = $withoutPackage = 0;
     $withCases = $withoutCases = $withKYC = $kycApproved = $kycPending = 0;
+    error_log("User Classification Error: " . $e->getMessage());
 }
 ?>
 

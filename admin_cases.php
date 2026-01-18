@@ -16,7 +16,16 @@ if ($currentAdminRole === 'superadmin') {
 }
 
 $platforms = $pdo->query("SELECT id, name FROM scam_platforms")->fetchAll();
-$admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins")->fetchAll();
+
+// Role-based admin loading: superadmin sees all admins, regular admin sees only themselves
+if ($currentAdminRole === 'superadmin') {
+    $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins")->fetchAll();
+} else {
+    // Regular admin only sees themselves in dropdown
+    $stmt = $pdo->prepare("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins WHERE id = ?");
+    $stmt->execute([$currentAdminId]);
+    $admins = $stmt->fetchAll();
+}
 ?>
 
 <div class="main-content">

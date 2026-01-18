@@ -12,56 +12,175 @@ $stmt = $pdo->prepare("SELECT first_name, last_name, role FROM admins WHERE id =
 $stmt->execute([$_SESSION['admin_id']]);
 $admin = $stmt->fetch();
 
-// Get comprehensive stats for dashboard
-$stats = [
-    'total_users' => $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
-    'active_users' => $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'active'")->fetchColumn(),
-    'new_users_today' => $pdo->query("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE()")->fetchColumn(),
-    'new_users_week' => $pdo->query("SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn(),
-    'active_cases' => $pdo->query("SELECT COUNT(*) FROM cases WHERE status NOT IN ('closed', 'refund_rejected')")->fetchColumn(),
-    'total_cases' => $pdo->query("SELECT COUNT(*) FROM cases")->fetchColumn(),
-    'pending_withdrawals' => $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'")->fetchColumn(),
-    'pending_deposits' => $pdo->query("SELECT COUNT(*) FROM deposits WHERE status = 'pending'")->fetchColumn(),
-    'total_recovered' => $pdo->query("SELECT COALESCE(SUM(recovered_amount), 0) FROM cases")->fetchColumn(),
-    'total_reported' => $pdo->query("SELECT COALESCE(SUM(reported_amount), 0) FROM cases")->fetchColumn(),
-    'pending_kyc' => $pdo->query("SELECT COUNT(*) FROM kyc_verification_requests WHERE status = 'pending'")->fetchColumn(),
-    'active_packages' => $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'active'")->fetchColumn(),
-    'expired_packages' => $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'expired'")->fetchColumn(),
-    'total_balance' => $pdo->query("SELECT COALESCE(SUM(balance), 0) FROM users")->fetchColumn(),
-    'emails_sent_today' => $pdo->query("SELECT COUNT(*) FROM email_logs WHERE DATE(sent_at) = CURDATE()")->fetchColumn(),
-    'withdrawals_approved_today' => $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE status = 'approved' AND DATE(updated_at) = CURDATE()")->fetchColumn(),
-];
+$currentAdminId = (int)$_SESSION['admin_id'];
+$currentAdminRole = $admin['role'] ?? 'admin';
+
+// Role-based filtering: superadmin sees all, admin sees only their own
+if ($currentAdminRole === 'superadmin') {
+    // Superadmin: see ALL data (no admin_id filtering)
+    $stats = [
+        'total_users' => $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn(),
+        'active_users' => $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'active'")->fetchColumn(),
+        'new_users_today' => $pdo->query("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE()")->fetchColumn(),
+        'new_users_week' => $pdo->query("SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetchColumn(),
+        'active_cases' => $pdo->query("SELECT COUNT(*) FROM cases WHERE status NOT IN ('closed', 'refund_rejected')")->fetchColumn(),
+        'total_cases' => $pdo->query("SELECT COUNT(*) FROM cases")->fetchColumn(),
+        'pending_withdrawals' => $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'")->fetchColumn(),
+        'pending_deposits' => $pdo->query("SELECT COUNT(*) FROM deposits WHERE status = 'pending'")->fetchColumn(),
+        'total_recovered' => $pdo->query("SELECT COALESCE(SUM(recovered_amount), 0) FROM cases")->fetchColumn(),
+        'total_reported' => $pdo->query("SELECT COALESCE(SUM(reported_amount), 0) FROM cases")->fetchColumn(),
+        'pending_kyc' => $pdo->query("SELECT COUNT(*) FROM kyc_verification_requests WHERE status = 'pending'")->fetchColumn(),
+        'active_packages' => $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'active'")->fetchColumn(),
+        'expired_packages' => $pdo->query("SELECT COUNT(*) FROM user_packages WHERE status = 'expired'")->fetchColumn(),
+        'total_balance' => $pdo->query("SELECT COALESCE(SUM(balance), 0) FROM users")->fetchColumn(),
+        'emails_sent_today' => $pdo->query("SELECT COUNT(*) FROM email_logs WHERE DATE(sent_at) = CURDATE()")->fetchColumn(),
+        'withdrawals_approved_today' => $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE status = 'approved' AND DATE(updated_at) = CURDATE()")->fetchColumn(),
+    ];
+    
+    // Get recent activities from audit_logs - all admins
+    $activities = $pdo->query("
+        SELECT 
+            al.id,
+            al.action,
+            al.entity_type,
+            al.entity_id,
+            al.old_value,
+            al.new_value,
+            al.created_at,
+            al.ip_address,
+            CONCAT(a.first_name, ' ', a.last_name) as admin_name
+        FROM audit_logs al
+        LEFT JOIN admins a ON al.admin_id = a.id
+        ORDER BY al.created_at DESC
+        LIMIT 5
+    ")->fetchAll();
+    
+    // Get recent cases - all cases
+    $recentCases = $pdo->query("
+        SELECT c.*, u.first_name, u.last_name, p.name as platform_name
+        FROM cases c
+        JOIN users u ON c.user_id = u.id
+        JOIN scam_platforms p ON c.platform_id = p.id
+        ORDER BY c.created_at DESC
+        LIMIT 5
+    ")->fetchAll();
+    
+    // Get recent users - all users
+    $recentUsers = $pdo->query("
+        SELECT u.*, 
+               (SELECT COUNT(*) FROM cases WHERE user_id = u.id) as cases_count,
+               (SELECT status FROM user_packages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as package_status
+        FROM users u
+        ORDER BY u.created_at DESC
+        LIMIT 5
+    ")->fetchAll();
+} else {
+    // Admin: see only their own data (filtered by admin_id)
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $total_users = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE status = 'active' AND admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $active_users = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE() AND admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $new_users_today = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $new_users_week = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM cases WHERE status NOT IN ('closed', 'refund_rejected') AND admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $active_cases = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM cases WHERE admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $total_cases = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(recovered_amount), 0) FROM cases WHERE admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $total_recovered = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(reported_amount), 0) FROM cases WHERE admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $total_reported = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(balance), 0) FROM users WHERE admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $total_balance = $stmt->fetchColumn();
+    
+    $stats = [
+        'total_users' => $total_users,
+        'active_users' => $active_users,
+        'new_users_today' => $new_users_today,
+        'new_users_week' => $new_users_week,
+        'active_cases' => $active_cases,
+        'total_cases' => $total_cases,
+        'pending_withdrawals' => 0, // Withdrawals not admin-specific
+        'pending_deposits' => 0, // Deposits not admin-specific
+        'total_recovered' => $total_recovered,
+        'total_reported' => $total_reported,
+        'pending_kyc' => 0, // KYC not admin-specific
+        'active_packages' => 0, // Packages not admin-specific
+        'expired_packages' => 0, // Packages not admin-specific
+        'total_balance' => $total_balance,
+        'emails_sent_today' => 0, // Email logs not admin-specific in current schema
+        'withdrawals_approved_today' => 0, // Withdrawals not admin-specific
+    ];
+    
+    // Get recent activities - only this admin's actions
+    $stmt = $pdo->prepare("
+        SELECT 
+            al.id,
+            al.action,
+            al.entity_type,
+            al.entity_id,
+            al.old_value,
+            al.new_value,
+            al.created_at,
+            al.ip_address,
+            CONCAT(a.first_name, ' ', a.last_name) as admin_name
+        FROM audit_logs al
+        LEFT JOIN admins a ON al.admin_id = a.id
+        WHERE al.admin_id = ?
+        ORDER BY al.created_at DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$currentAdminId]);
+    $activities = $stmt->fetchAll();
+    
+    // Get recent cases - only this admin's cases
+    $stmt = $pdo->prepare("
+        SELECT c.*, u.first_name, u.last_name, p.name as platform_name
+        FROM cases c
+        JOIN users u ON c.user_id = u.id
+        JOIN scam_platforms p ON c.platform_id = p.id
+        WHERE c.admin_id = ?
+        ORDER BY c.created_at DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$currentAdminId]);
+    $recentCases = $stmt->fetchAll();
+    
+    // Get recent users - only this admin's users
+    $stmt = $pdo->prepare("
+        SELECT u.*, 
+               (SELECT COUNT(*) FROM cases WHERE user_id = u.id) as cases_count,
+               (SELECT status FROM user_packages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as package_status
+        FROM users u
+        WHERE u.admin_id = ?
+        ORDER BY u.created_at DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$currentAdminId]);
+    $recentUsers = $stmt->fetchAll();
+}
 
 // Calculate recovery rate
 $recoveryRate = $stats['total_reported'] > 0 ? ($stats['total_recovered'] / $stats['total_reported']) * 100 : 0;
-
-// Get recent activities from audit_logs
-$activities = $pdo->query("
-    SELECT 
-        al.id,
-        al.action,
-        al.entity_type,
-        al.entity_id,
-        al.old_value,
-        al.new_value,
-        al.created_at,
-        al.ip_address,
-        CONCAT(a.first_name, ' ', a.last_name) as admin_name
-    FROM audit_logs al
-    LEFT JOIN admins a ON al.admin_id = a.id
-    ORDER BY al.created_at DESC
-    LIMIT 5
-")->fetchAll();
-
-// Get recent cases
-$recentCases = $pdo->query("
-    SELECT c.*, u.first_name, u.last_name, p.name as platform_name
-    FROM cases c
-    JOIN users u ON c.user_id = u.id
-    JOIN scam_platforms p ON c.platform_id = p.id
-    ORDER BY c.created_at DESC
-    LIMIT 5
-")->fetchAll();
 
 // Get pending items that need attention
 $pendingItems = [
@@ -70,16 +189,6 @@ $pendingItems = [
     'kyc' => $stats['pending_kyc'],
 ];
 $totalPending = array_sum($pendingItems);
-
-// Get recent users
-$recentUsers = $pdo->query("
-    SELECT u.*, 
-           (SELECT COUNT(*) FROM cases WHERE user_id = u.id) as cases_count,
-           (SELECT status FROM user_packages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as package_status
-    FROM users u
-    ORDER BY u.created_at DESC
-    LIMIT 5
-")->fetchAll();
 ?>
 
                 <!-- Content Wrapper START -->

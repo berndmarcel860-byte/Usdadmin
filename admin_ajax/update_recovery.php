@@ -27,22 +27,15 @@ if (empty($data['case_id']) || !is_numeric($data['case_id']) || empty($data['amo
     exit();
 }
 
-// Determine currency type from the request or default to 'fiat'
-$currencyType = $data['currency_type'] ?? 'fiat';
-$cryptoCurrencyId = $data['crypto_currency_id'] ?? null;
-
 try {
     $pdo->beginTransaction();
 
     // === 1️⃣ Get case & user ===
     $stmt = $pdo->prepare("
-        SELECT c.id, c.user_id, c.reported_amount, c.case_number, c.status, c.currency_type,
-               c.crypto_reported_amount, c.crypto_recovered_amount, c.crypto_currency_id,
-               cr.symbol AS crypto_symbol, cr.code AS crypto_code, cr.name AS crypto_name,
+        SELECT c.id, c.user_id, c.reported_amount, c.case_number, c.status,
                u.email, u.first_name, u.last_name
         FROM cases c
         JOIN users u ON c.user_id = u.id
-        LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
         WHERE c.id = ?
     ");
     $stmt->execute([$data['case_id']]);
@@ -55,68 +48,33 @@ try {
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // === 3️⃣ Validation: not exceeding amount ===
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = ?");
+    $stmt->execute([$data['case_id']]);
+    $alreadyRecovered = (float)$stmt->fetchColumn();
+
     $newAmount = (float)$data['amount'];
-    
-    if ($case['currency_type'] === 'crypto' && $case['crypto_reported_amount']) {
-        // For crypto cases
-        $stmt = $pdo->prepare("SELECT SUM(crypto_amount) FROM case_recovery_transactions WHERE case_id = ? AND currency_type = 'crypto'");
-        $stmt->execute([$data['case_id']]);
-        $alreadyRecovered = (float)$stmt->fetchColumn();
-        $reportedAmount = (float)$case['crypto_reported_amount'];
-        $totalAfter = $alreadyRecovered + $newAmount;
-        
-        if ($totalAfter > $reportedAmount) {
-            throw new Exception('Total recovered cannot exceed reported amount');
-        }
-    } else {
-        // For fiat cases
-        $stmt = $pdo->prepare("SELECT SUM(amount) FROM case_recovery_transactions WHERE case_id = ? AND (currency_type = 'fiat' OR currency_type IS NULL)");
-        $stmt->execute([$data['case_id']]);
-        $alreadyRecovered = (float)$stmt->fetchColumn();
-        $reportedAmount = (float)$case['reported_amount'];
-        $totalAfter = $alreadyRecovered + $newAmount;
-        
-        if ($totalAfter > $reportedAmount) {
-            throw new Exception('Total recovered cannot exceed reported amount');
-        }
+    $totalAfter = $alreadyRecovered + $newAmount;
+
+    if ($totalAfter > $case['reported_amount']) {
+        throw new Exception('Total recovered cannot exceed reported amount');
     }
 
     // === 4️⃣ Record recovery transaction ===
-    if ($case['currency_type'] === 'crypto' && $case['crypto_reported_amount']) {
-        // Insert crypto recovery
-        $stmt = $pdo->prepare("
-            INSERT INTO case_recovery_transactions (case_id, amount, crypto_amount, crypto_currency_id, currency_type, processed_by, notes)
-            VALUES (:case_id, 0, :crypto_amount, :crypto_currency_id, 'crypto', :admin_id, :notes)
-        ");
-        $stmt->execute([
-            ':case_id' => $data['case_id'],
-            ':crypto_amount' => $newAmount,
-            ':crypto_currency_id' => $case['crypto_currency_id'],
-            ':admin_id' => $_SESSION['admin_id'],
-            ':notes' => $data['notes'] ?? null
-        ]);
-        
-        // Update case crypto_recovered_amount
-        $stmt = $pdo->prepare("UPDATE cases SET crypto_recovered_amount = :recovered WHERE id = :id");
-        $stmt->execute([':recovered' => $totalAfter, ':id' => $data['case_id']]);
-    } else {
-        // Insert fiat recovery
-        $stmt = $pdo->prepare("
-            INSERT INTO case_recovery_transactions (case_id, amount, currency_type, processed_by, notes)
-            VALUES (:case_id, :amount, 'fiat', :admin_id, :notes)
-        ");
-        $stmt->execute([
-            ':case_id' => $data['case_id'],
-            ':amount' => $newAmount,
-            ':admin_id' => $_SESSION['admin_id'],
-            ':notes' => $data['notes'] ?? null
-        ]);
-    }
+    $stmt = $pdo->prepare("
+        INSERT INTO case_recovery_transactions (case_id, amount, processed_by, notes)
+        VALUES (:case_id, :amount, :admin_id, :notes)
+    ");
+    $stmt->execute([
+        ':case_id' => $data['case_id'],
+        ':amount' => $newAmount,
+        ':admin_id' => $_SESSION['admin_id'],
+        ':notes' => $data['notes'] ?? null
+    ]);
 
     // === 5️⃣ Send recovery update email ===
     $emailSent = sendRecoveryUpdateEmail(
         $pdo, $case, $data['case_id'], $newAmount, $totalAfter,
-        $reportedAmount, $data, $admin
+        $case['reported_amount'], $data, $admin
     );
 
     // === 6️⃣ Audit log ===
@@ -142,14 +100,6 @@ try {
 
     // === 7️⃣ 🔔 Create user notification ===
     try {
-        $amountDisplay = '';
-        if ($case['currency_type'] === 'crypto' && $case['crypto_reported_amount']) {
-            $cryptoSymbol = $case['crypto_symbol'] ?? $case['crypto_code'] ?? 'CRYPTO';
-            $amountDisplay = number_format($newAmount, 8) . ' ' . $cryptoSymbol;
-        } else {
-            $amountDisplay = '$' . number_format($newAmount, 2);
-        }
-        
         $stmt = $pdo->prepare("
             INSERT INTO user_notifications (user_id, title, message, type, related_entity, related_id, created_at)
             VALUES (:user_id, :title, :message, :type, :entity, :rel_id, NOW())
@@ -157,7 +107,7 @@ try {
         $stmt->execute([
             ':user_id' => (int)$case['user_id'],
             ':title' => 'Rückerstattungs-Update für Ihren Fall',
-            ':message' => 'Ein Betrag von <strong>' . $amountDisplay .
+            ':message' => 'Ein Betrag von <strong>$' . number_format($newAmount, 2) .
                 '</strong> wurde erfolgreich zu Ihrem Fall <strong>' . htmlspecialchars($case['case_number']) . '</strong> hinzugefügt.',
             ':type' => 'success',
             ':entity' => 'case',
@@ -169,14 +119,6 @@ try {
 
     // === 8️⃣ 🧭 Create admin notification ===
     try {
-        $amountDisplay = '';
-        if ($case['currency_type'] === 'crypto' && $case['crypto_reported_amount']) {
-            $cryptoSymbol = $case['crypto_symbol'] ?? $case['crypto_code'] ?? 'CRYPTO';
-            $amountDisplay = number_format($newAmount, 8) . ' ' . $cryptoSymbol;
-        } else {
-            $amountDisplay = '$' . number_format($newAmount, 2);
-        }
-        
         $stmt = $pdo->prepare("
             INSERT INTO admin_notifications (admin_id, title, message, type, is_read, created_at)
             VALUES (:admin_id, :title, :message, :type, 0, NOW())
@@ -184,7 +126,7 @@ try {
         $stmt->execute([
             ':admin_id' => (int)$_SESSION['admin_id'],
             ':title' => 'Neue Rückerstattung registriert',
-            ':message' => 'Eine Rückerstattung von <strong>' . $amountDisplay .
+            ':message' => 'Eine Rückerstattung von <strong>$' . number_format($newAmount, 2) .
                 '</strong> wurde dem Fall <strong>' . htmlspecialchars($case['case_number']) . '</strong> hinzugefügt.',
             ':type' => 'success'
         ]);
@@ -201,9 +143,8 @@ try {
             'case_number' => $case['case_number'],
             'new_amount' => $newAmount,
             'total_recovered' => $totalAfter,
-            'remaining_amount' => $reportedAmount - $totalAfter,
-            'email_sent' => $emailSent,
-            'currency_type' => $case['currency_type']
+            'remaining_amount' => $case['reported_amount'] - $totalAfter,
+            'email_sent' => $emailSent
         ]
     ]);
 
@@ -234,26 +175,16 @@ function sendRecoveryUpdateEmail($pdo, $userData, $caseId, $newAmount, $totalAft
         $systemStmt->execute();
         $system = $systemStmt->fetch(PDO::FETCH_ASSOC);
 
-        // Format amounts based on currency type
-        $currencySymbol = '';
-        $amountPrecision = 2;
-        if ($userData['currency_type'] === 'crypto' && isset($userData['crypto_symbol'])) {
-            $currencySymbol = ' ' . $userData['crypto_symbol'];
-            $amountPrecision = 8;
-        } else {
-            $currencySymbol = ' $';
-        }
-        
         $vars = [
             '{first_name}' => $userData['first_name'],
             '{last_name}' => $userData['last_name'],
             '{user_name}' => $userData['first_name'].' '.$userData['last_name'],
             '{case_number}' => $userData['case_number'],
             '{case_id}' => $caseId,
-            '{reported_amount}' => number_format($reportedAmount, $amountPrecision, ',', '.') . $currencySymbol,
-            '{recovered_amount}' => number_format($newAmount, $amountPrecision, ',', '.') . $currencySymbol,
-            '{total_recovered}' => number_format($totalAfter, $amountPrecision, ',', '.') . $currencySymbol,
-            '{remaining_amount}' => number_format($reportedAmount - $totalAfter, $amountPrecision, ',', '.') . $currencySymbol,
+            '{reported_amount}' => number_format($reportedAmount, 2, ',', '.') . ' €',
+            '{recovered_amount}' => number_format($newAmount, 2, ',', '.') . ' €',
+            '{total_recovered}' => number_format($totalAfter, 2, ',', '.') . ' €',
+            '{remaining_amount}' => number_format($reportedAmount - $totalAfter, 2, ',', '.') . ' €',
             '{recovery_notes}' => $updateData['notes'] ?? 'Keine zusätzlichen Anmerkungen',
             '{recovery_date}' => date('d.m.Y H:i:s'),
             '{processed_by}' => $adminData ? ($adminData['first_name'].' '.$adminData['last_name']) : 'System',

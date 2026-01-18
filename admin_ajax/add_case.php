@@ -40,41 +40,18 @@ try {
     $caseNumber = 'SCM-' . date('Y') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
     // === 1️⃣ Insert new case ===
-    $currencyType = $data['currency_type'] ?? 'fiat';
-    $cryptoCurrencyId = !empty($data['crypto_currency_id']) ? (int)$data['crypto_currency_id'] : null;
-    $assignedAdminId = !empty($data['admin_id']) ? (int)$data['admin_id'] : null;
-    $creatorAdminId = (int)$_SESSION['admin_id']; // Admin who creates the case
-    
-    if ($currencyType === 'crypto') {
-        $stmt = $pdo->prepare("
-            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, crypto_currency_id, crypto_reported_amount, currency_type, status, description, assigned_to, admin_id, created_at, updated_at)
-            VALUES (:case_number, :user_id, :platform_id, 0, :crypto_currency_id, :crypto_amount, 'crypto', 'open', :description, :assigned_admin_id, :admin_id, NOW(), NOW())
-        ");
-        $stmt->execute([
-            ':case_number' => $caseNumber,
-            ':user_id' => (int)$data['user_id'],
-            ':platform_id' => (int)$data['platform_id'],
-            ':crypto_currency_id' => $cryptoCurrencyId,
-            ':crypto_amount' => (float)$data['reported_amount'],
-            ':description' => trim($data['description']),
-            ':assigned_admin_id' => $assignedAdminId,
-            ':admin_id' => $creatorAdminId
-        ]);
-    } else {
-        $stmt = $pdo->prepare("
-            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, currency_type, status, description, assigned_to, admin_id, created_at, updated_at)
-            VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'fiat', 'open', :description, :assigned_admin_id, :admin_id, NOW(), NOW())
-        ");
-        $stmt->execute([
-            ':case_number' => $caseNumber,
-            ':user_id' => (int)$data['user_id'],
-            ':platform_id' => (int)$data['platform_id'],
-            ':reported_amount' => (float)$data['reported_amount'],
-            ':description' => trim($data['description']),
-            ':assigned_admin_id' => $assignedAdminId,
-            ':admin_id' => $creatorAdminId
-        ]);
-    }
+    $stmt = $pdo->prepare("
+        INSERT INTO cases (case_number, user_id, platform_id, reported_amount, status, description, admin_id, created_at, updated_at)
+        VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'open', :description, :admin_id, NOW(), NOW())
+    ");
+    $stmt->execute([
+        ':case_number' => $caseNumber,
+        ':user_id' => (int)$data['user_id'],
+        ':platform_id' => (int)$data['platform_id'],
+        ':reported_amount' => (float)$data['reported_amount'],
+        ':description' => trim($data['description']),
+        ':admin_id' => (int)$_SESSION['admin_id']
+    ]);
     $caseId = $pdo->lastInsertId();
 
     // === 2️⃣ Record case status history ===
@@ -84,17 +61,10 @@ try {
     ");
     $stmt->execute([':case_id' => $caseId, ':admin_id' => (int)$_SESSION['admin_id']]);
 
-    // === 3️⃣ Optional admin assignment (for assigning to different admin) ===
+    // === 3️⃣ Optional admin assignment ===
     if (!empty($data['admin_id']) && $data['admin_id'] != $_SESSION['admin_id']) {
-        // Verify the target admin exists
-        $checkAdminStmt = $pdo->prepare("SELECT id FROM admins WHERE id = ?");
-        $checkAdminStmt->execute([(int)$data['admin_id']]);
-        if (!$checkAdminStmt->fetch()) {
-            throw new Exception("Invalid admin_id for assignment");
-        }
-        
         $stmt = $pdo->prepare("
-            UPDATE cases SET assigned_to = :assigned_admin_id, updated_at = NOW() WHERE id = :case_id
+            UPDATE cases SET admin_id = :assigned_admin_id, updated_at = NOW() WHERE id = :case_id
         ");
         $stmt->execute([
             ':assigned_admin_id' => (int)$data['admin_id'],

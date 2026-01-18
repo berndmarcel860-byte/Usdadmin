@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     // For DataTables server-side processing
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
@@ -18,7 +22,7 @@ try {
     $start_date = isset($_POST['start_date']) ? $_POST['start_date'] : '';
     $end_date = isset($_POST['end_date']) ? $_POST['end_date'] : '';
     
-    // Base query
+    // Base query with role-based filtering
     $query = "
         SELECT 
             ual.id,
@@ -37,6 +41,12 @@ try {
     ";
     
     $params = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
     
     // Add filters
     if ($user_email) {
@@ -84,6 +94,12 @@ try {
     // Get total records count (simplified for performance)
     $countQuery = "SELECT COUNT(*) as total FROM user_activity_logs ual LEFT JOIN users u ON ual.user_id = u.id WHERE 1=1";
     $countParams = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $countQuery .= " AND u.admin_id = ?";
+        $countParams[] = $currentAdminId;
+    }
     
     // Apply same filters to count query
     if ($user_email) {

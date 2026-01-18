@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $query = "
         SELECT 
             t.*, 
@@ -17,6 +21,12 @@ try {
     ";
     
     $params = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
     
     // Apply filters
     if (!empty($_GET['type'])) {

@@ -11,6 +11,10 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 try {
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     // DataTables parameters
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
@@ -21,6 +25,11 @@ try {
     // Build WHERE clause based on classification
     $where = "1=1";
     $joins = "";
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $where .= " AND u.admin_id = :admin_id";
+    }
     
     switch ($classification) {
         // Onboarding filters
@@ -85,6 +94,9 @@ try {
     // Count total records
     $countSql = "SELECT COUNT(DISTINCT u.id) FROM users u $joins WHERE $where";
     $countStmt = $pdo->prepare($countSql);
+    if ($currentAdminRole !== 'superadmin') {
+        $countStmt->bindValue(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
     if ($search) {
         $countStmt->bindValue(':search', "%$search%");
     }
@@ -113,6 +125,9 @@ try {
     ";
     
     $stmt = $pdo->prepare($sql);
+    if ($currentAdminRole !== 'superadmin') {
+        $stmt->bindValue(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
     if ($search) {
         $stmt->bindValue(':search', "%$search%");
     }

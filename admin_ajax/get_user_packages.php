@@ -28,7 +28,11 @@ try {
     $columns = ['up.id', 'u.first_name', 'p.name', 'p.price', 'up.start_date', 'up.end_date', 'up.status'];
     $orderBy = isset($columns[$orderColumn]) ? $columns[$orderColumn] : 'up.id';
     
-    // Base query
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
+    // Base query with role-based filtering
     $baseQuery = "
         FROM user_packages up
         JOIN users u ON up.user_id = u.id
@@ -37,6 +41,12 @@ try {
     ";
     
     $params = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $baseQuery .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
     
     // Apply filters
     if ($statusFilter) {

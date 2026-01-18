@@ -79,7 +79,6 @@ $stmt->execute();
 $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Total records (excluding suspended users, filtered by admin_id)
-$totalRecords = $pdo->prepare("SELECT COUNT(*) FROM users WHERE status != 'suspended' AND admin_id = ?")->execute([$currentAdminId]) ? $pdo->query("SELECT FOUND_ROWS()")->fetchColumn() : 0;
 $totalRecordsStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE status != 'suspended' AND admin_id = ?");
 $totalRecordsStmt->execute([$currentAdminId]);
 $totalRecords = $totalRecordsStmt->fetchColumn();

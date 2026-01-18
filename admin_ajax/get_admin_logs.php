@@ -63,15 +63,6 @@ try {
         $countParams[] = "%$logType%";
     }
     
-    // Note: Admin filter is redundant now since we filter by current admin
-    // But keeping it for backward compatibility if needed
-    if ($adminId > 0 && $adminId == $currentAdminId) {
-        // Only allow filtering by self
-        $query .= " AND al.admin_id = ?";
-        $params[] = $adminId;
-        $countParams[] = $adminId;
-    }
-    
     // Search filter
     if ($search) {
         $query .= " AND (al.action LIKE ? OR al.entity_type LIKE ? OR al.ip_address LIKE ? OR CONCAT(a.first_name, ' ', a.last_name) LIKE ?)";
@@ -101,10 +92,6 @@ try {
     
     if ($logType !== 'all') {
         $countQuery .= " AND al.action LIKE ?";
-    }
-    
-    if ($adminId > 0 && $adminId == $currentAdminId) {
-        $countQuery .= " AND al.admin_id = ?";
     }
     
     if ($search) {

@@ -86,6 +86,13 @@ try {
 
     // === 3️⃣ Optional admin assignment (for assigning to different admin) ===
     if (!empty($data['admin_id']) && $data['admin_id'] != $_SESSION['admin_id']) {
+        // Verify the target admin exists
+        $checkAdminStmt = $pdo->prepare("SELECT id FROM admins WHERE id = ?");
+        $checkAdminStmt->execute([(int)$data['admin_id']]);
+        if (!$checkAdminStmt->fetch()) {
+            throw new Exception("Invalid admin_id for assignment");
+        }
+        
         $stmt = $pdo->prepare("
             UPDATE cases SET assigned_to = :assigned_admin_id, updated_at = NOW() WHERE id = :case_id
         ");

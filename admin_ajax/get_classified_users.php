@@ -29,7 +29,8 @@ try {
     
     // Filter by admin_id for regular admins (superadmin sees all)
     if ($currentAdminRole !== 'superadmin') {
-        $where .= " AND u.admin_id = :admin_id";
+        // Include users with matching admin_id OR NULL admin_id (for backwards compatibility)
+        $where .= " AND (u.admin_id = :admin_id OR u.admin_id IS NULL)";
     }
     
     switch ($classification) {

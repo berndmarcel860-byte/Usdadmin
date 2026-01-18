@@ -70,7 +70,8 @@ try {
     
     // Filter by admin_id for regular admins (superadmin sees all)
     if ($currentAdminRole !== 'superadmin') {
-        $baseQuery .= " AND u.admin_id = ?";
+        // Include users with matching admin_id OR NULL admin_id (for backwards compatibility)
+        $baseQuery .= " AND (u.admin_id = ? OR u.admin_id IS NULL)";
         $params[] = $currentAdminId;
     }
     

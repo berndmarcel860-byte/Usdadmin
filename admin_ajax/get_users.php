@@ -16,14 +16,25 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 $currentAdminId = (int)$_SESSION['admin_id'];
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
 
 $columns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
-// Filter by admin_id - each admin sees only their own users
-$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status AND admin_id = :admin_id";
-$params = [
-    'excluded_status' => 'suspended',
-    'admin_id' => $currentAdminId
-];
+
+// Role-based filtering: superadmin sees all users, admin sees only their own
+if ($currentAdminRole === 'superadmin') {
+    // Superadmin: see ALL users (no admin_id filter)
+    $query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status";
+    $params = [
+        'excluded_status' => 'suspended'
+    ];
+} else {
+    // Admin: see only their own users (filtered by admin_id)
+    $query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status AND admin_id = :admin_id";
+    $params = [
+        'excluded_status' => 'suspended',
+        'admin_id' => $currentAdminId
+    ];
+}
 
 // Search filter
 $searchValue = '';

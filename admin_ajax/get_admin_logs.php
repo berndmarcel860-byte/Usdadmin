@@ -17,6 +17,7 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 $currentAdminId = (int)$_SESSION['admin_id'];
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
 
 try {
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
@@ -27,18 +28,30 @@ try {
     $logType = isset($_POST['log_type']) ? $_POST['log_type'] : 'all';
     $adminId = isset($_POST['admin_id']) ? (int)$_POST['admin_id'] : 0;
     
-    // Base query - FILTER BY CURRENT ADMIN to show only their own logs
+    // Role-based filtering: superadmin sees all logs, admin sees only their own
+    $whereClause = "";
+    $params = [];
+    $countParams = [];
+    
+    if ($currentAdminRole === 'superadmin') {
+        // Superadmin: see ALL logs (no admin_id filter)
+        $whereClause = "WHERE 1=1";
+    } else {
+        // Admin: see only their own logs (filtered by admin_id)
+        $whereClause = "WHERE al.admin_id = ?";
+        $params[] = $currentAdminId;
+        $countParams[] = $currentAdminId;
+    }
+    
+    // Base query
     $query = "
         SELECT 
             al.*,
             CONCAT(a.first_name, ' ', a.last_name) as admin_name
         FROM admin_logs al
         LEFT JOIN admins a ON al.admin_id = a.id
-        WHERE al.admin_id = ?
+        {$whereClause}
     ";
-    
-    $params = [$currentAdminId];
-    $countParams = [$currentAdminId];
     
     // Date range filter
     switch ($dateRange) {
@@ -71,8 +84,8 @@ try {
         $countParams = array_merge($countParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
     }
     
-    // Get total count - FILTERED BY CURRENT ADMIN
-    $countQuery = "SELECT COUNT(*) FROM admin_logs al LEFT JOIN admins a ON al.admin_id = a.id WHERE al.admin_id = ?";
+    // Get total count - Role-based
+    $countQuery = "SELECT COUNT(*) FROM admin_logs al LEFT JOIN admins a ON al.admin_id = a.id {$whereClause}";
     
     // Apply same filters to count query
     switch ($dateRange) {

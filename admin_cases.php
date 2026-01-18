@@ -1,8 +1,20 @@
 <?php
 require_once 'admin_header.php';
 
-// Get all users and platforms for dropdowns
-$users = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM users")->fetchAll();
+// Role-based user loading: superadmin sees all users, admin sees only their own
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+$currentAdminId = (int)$_SESSION['admin_id'];
+
+if ($currentAdminRole === 'superadmin') {
+    // Superadmin: get ALL users
+    $users = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM users WHERE status != 'suspended'")->fetchAll();
+} else {
+    // Admin: get only their own users
+    $stmt = $pdo->prepare("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM users WHERE status != 'suspended' AND admin_id = ?");
+    $stmt->execute([$currentAdminId]);
+    $users = $stmt->fetchAll();
+}
+
 $platforms = $pdo->query("SELECT id, name FROM scam_platforms")->fetchAll();
 $admins = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM admins")->fetchAll();
 ?>

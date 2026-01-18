@@ -1,19 +1,32 @@
-# Multi-Admin Data Isolation Guide
+# Multi-Admin Data Isolation & Role-Based Access Control Guide
 
 ## Overview
 
-The admin panel now supports **multiple admin users** with **complete data isolation**. Each admin can only see and manage their own data:
+The admin panel now supports **multiple admin users** with **complete data isolation** and **role-based access control**. The system has two role types:
 
-- ✅ **Users** - Only users they created
-- ✅ **Cases** - Only cases they created  
-- ✅ **Logs** - Only their own activity logs
-- ✅ **Other entities** - Similarly isolated by admin_id
+### Role Types
+
+#### 1. Superadmin (`role = 'superadmin'`)
+- ✅ **Full System Access** - Can view ALL data across all admins
+- ✅ **Users** - Can see all users in the system
+- ✅ **Cases** - Can see all cases across all admins
+- ✅ **Logs** - Can see all admin activity logs
+- ✅ **No Filtering** - No admin_id restrictions applied
+
+#### 2. Admin (`role = 'admin'`)
+- ✅ **Limited Access** - Can only view their own data
+- ✅ **Users** - Only users they created (filtered by admin_id)
+- ✅ **Cases** - Only cases they created (filtered by admin_id)
+- ✅ **Logs** - Only their own activity logs (filtered by admin_id)
+- ✅ **Data Isolation** - Strict admin_id filtering enforced
 
 ## Features
 
-### 1. Data Isolation by Admin ID
+### 1. Role-Based Data Filtering
 
-Each admin user is assigned a unique `admin_id` when they log in. This ID is stored in `$_SESSION['admin_id']` and used to filter all data queries.
+### 2. Data Isolation by Admin ID (for regular admins)
+
+For regular admin users (not superadmin), each admin is assigned a unique `admin_id` when they log in. This ID is stored in `$_SESSION['admin_id']` and used to filter all data queries.
 
 **Tables with admin_id tracking:**
 - `users` - `admin_id` column tracks which admin created the user
@@ -85,7 +98,22 @@ Or via phpMyAdmin:
 4. Copy and paste the contents of `migration_multi_admin_support.sql`
 5. Click "Go"
 
-### Step 2: Update Existing Records (Optional)
+### Step 2: Set Admin Roles
+
+Assign roles to your admin users. You need at least one superadmin:
+
+```sql
+-- Make specific admin a superadmin (can see all data)
+UPDATE admins SET role = 'superadmin' WHERE id = 1;
+
+-- Set other admins as regular admins (see only their data)
+UPDATE admins SET role = 'admin' WHERE id != 1;
+
+-- Or update all NULL roles to 'admin' by default
+UPDATE admins SET role = 'admin' WHERE role IS NULL OR role = '';
+```
+
+### Step 3: Update Existing Records (Optional)
 
 If you have existing users, cases, and logs without admin_id values, you may want to assign them to a default admin:
 
@@ -99,25 +127,35 @@ UPDATE cases SET admin_id = 1 WHERE admin_id IS NULL;
 -- Note: admin_logs already has admin_id, so no update needed
 ```
 
-### Step 3: Test the Feature
+### Step 4: Test the Feature
 
-1. Log in as Admin 1
-2. Create a test user
-3. Create a test case
-4. Log out
-5. Log in as Admin 2
-6. Verify you don't see Admin 1's users and cases
-7. Create your own user and case
-8. Verify you only see your own data
+**Test Superadmin:**
+1. Log in as the superadmin account (role='superadmin')
+2. Verify you can see ALL users and cases in the system
+3. Create a test user and case
+
+**Test Regular Admin:**
+1. Log out and log in as a regular admin (role='admin')
+2. Verify you only see users/cases created by your admin account
+3. Verify you DON'T see the superadmin's test data
+4. Create your own user and case
+5. Verify data isolation is working correctly
 
 ## Modified Files
 
 ### AJAX Endpoints Modified:
 - ✅ `admin_ajax/add_user.php` - Sets admin_id on user creation
 - ✅ `admin_ajax/add_case.php` - Sets admin_id on case creation
-- ✅ `admin_ajax/get_users.php` - Filters users by admin_id
-- ✅ `admin_ajax/get_cases.php` - Filters cases by admin_id
-- ✅ `admin_ajax/get_admin_logs.php` - Filters logs by admin_id
+- ✅ `admin_ajax/get_users.php` - Role-based filtering (superadmin sees all, admin sees own)
+- ✅ `admin_ajax/get_cases.php` - Role-based filtering (superadmin sees all, admin sees own)
+- ✅ `admin_ajax/get_admin_logs.php` - Role-based filtering (superadmin sees all, admin sees own)
+
+### Frontend Pages Modified:
+- ✅ `admin_cases.php` - User dropdown filtered by role (superadmin sees all users, admin sees only their users)
+
+### Session Variables:
+- ✅ `$_SESSION['admin_role']` - Stores 'superadmin' or 'admin'
+- ✅ `$_SESSION['admin_id']` - Stores current admin's ID
 
 ### Database Schema:
 - ✅ `migration_multi_admin_support.sql` - Adds admin_id columns and indexes
@@ -157,25 +195,49 @@ Admin ID filtering is applied at the database query level, ensuring:
 
 ## Advanced Configuration
 
-### Super Admin Access (Optional)
+### Role-Based Access Control (RBAC)
 
-If you want to create a "super admin" who can see all data, you can modify the queries:
+The system now includes built-in role-based access control with two roles:
 
+**Superadmin (`role = 'superadmin'`):**
+- Full system access
+- Can view ALL users, cases, and logs
+- No data filtering applied
+- Ideal for: System administrators, managers
+
+**Admin (`role = 'admin'`):**
+- Limited access to own data only
+- Can only view users/cases they created
+- Strict admin_id filtering enforced
+- Ideal for: Individual admins, team members
+
+**Implementation Example:**
 ```php
-// Check if admin has super privileges
-$isSuperAdmin = ($_SESSION['admin_role'] === 'super_admin');
+// Check role and apply filtering
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
 
-// Apply filter conditionally
-if (!$isSuperAdmin) {
-    $query .= " WHERE admin_id = :admin_id";
-    $params['admin_id'] = $currentAdminId;
+if ($currentAdminRole === 'superadmin') {
+    // No filtering - see all data
+    $query = "SELECT * FROM users WHERE status != 'suspended'";
+} else {
+    // Filter by admin_id - see only own data
+    $query = "SELECT * FROM users WHERE status != 'suspended' AND admin_id = :admin_id";
 }
 ```
 
-Don't forget to add a `role` column to the `admins` table:
+### Changing Admin Roles
+
+To promote an admin to superadmin or demote them:
+
 ```sql
-ALTER TABLE admins ADD COLUMN role ENUM('admin', 'super_admin') DEFAULT 'admin';
+-- Promote admin ID 5 to superadmin
+UPDATE admins SET role = 'superadmin' WHERE id = 5;
+
+-- Demote admin ID 5 back to regular admin
+UPDATE admins SET role = 'admin' WHERE id = 5;
 ```
+
+**Note:** The role change takes effect on next login (session refresh required).
 
 ### Shared Resources
 
@@ -208,17 +270,27 @@ UPDATE cases SET admin_id = YOUR_ADMIN_ID WHERE admin_id IS NULL;
 ```php
 // Check session
 var_dump($_SESSION['admin_id']); // Should show your admin ID
+var_dump($_SESSION['admin_role']); // Should show 'admin' or 'superadmin'
 ```
 
-### Issue: Logs Not Filtering
+### Issue: Admin Can't See Any Data
 
-**Problem:** Seeing logs from other admins.
+**Problem:** Regular admin user logs in but sees no users or cases.
 
-**Solution:** Verify the migration was applied correctly:
-```sql
--- Check if admin_logs has index
-SHOW INDEX FROM admin_logs WHERE Key_name = 'idx_admin_logs_admin_id';
-```
+**Solution:**  
+1. Check if admin_id is set correctly when creating entities
+2. Verify the admin has created some users/cases
+3. Check role is set to 'admin' (not NULL)
+4. If brand new admin, they won't see data until they create some
+
+### Issue: Superadmin Seeing Filtered Data
+
+**Problem:** Superadmin is seeing filtered data instead of all data.
+
+**Solution:**
+1. Verify role is exactly 'superadmin': `SELECT id, email, role FROM admins WHERE id = YOUR_ID;`
+2. Check session variable: Log out and log back in to refresh `$_SESSION['admin_role']`
+3. Ensure role was set before login: `UPDATE admins SET role = 'superadmin' WHERE id = YOUR_ID;`
 
 ## Benefits
 

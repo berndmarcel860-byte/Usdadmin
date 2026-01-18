@@ -14,8 +14,20 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 $currentAdminId = (int)$_SESSION['admin_id'];
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
 
 try {
+    // Role-based filtering: superadmin sees all cases, admin sees only their own
+    $whereClause = "";
+    $params = [];
+    
+    if ($currentAdminRole !== 'superadmin') {
+        // Admin: see only their own cases (filtered by admin_id)
+        $whereClause = "WHERE c.admin_id = :admin_id";
+        $params['admin_id'] = $currentAdminId;
+    }
+    // Superadmin: no WHERE clause, sees all cases
+    
     $query = "
         SELECT 
             c.*, 
@@ -34,12 +46,12 @@ try {
         LEFT JOIN scam_platforms p ON c.platform_id = p.id
         LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
         LEFT JOIN crypto_exchange_rates cer ON cr.id = cer.crypto_currency_id
-        WHERE c.admin_id = :admin_id
+        {$whereClause}
         ORDER BY c.created_at DESC
     ";
     
     $stmt = $pdo->prepare($query);
-    $stmt->execute(['admin_id' => $currentAdminId]);
+    $stmt->execute($params);
     
     $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

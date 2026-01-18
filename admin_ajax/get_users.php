@@ -1,11 +1,29 @@
 <?php
 // admin_ajax/get_users.php
 require_once '../../config.php';
-#require_once 'admin_auth.php';
+require_once '../admin_session.php';
+
+// Verify admin is logged in
+if (!isset($_SESSION['admin_id'])) {
+    echo json_encode([
+        'draw' => intval($_POST['draw'] ?? 0),
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Unauthorized'
+    ]);
+    exit();
+}
+
+$currentAdminId = (int)$_SESSION['admin_id'];
 
 $columns = ['id', 'first_name', 'last_name', 'email', 'status', 'balance', 'created_at'];
-$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status";
-$params = ['excluded_status' => 'suspended'];
+// Filter by admin_id - each admin sees only their own users
+$query = "SELECT " . implode(', ', $columns) . " FROM users WHERE status != :excluded_status AND admin_id = :admin_id";
+$params = [
+    'excluded_status' => 'suspended',
+    'admin_id' => $currentAdminId
+];
 
 // Search filter
 $searchValue = '';
@@ -60,16 +78,20 @@ foreach ($params as $key => $value) {
 $stmt->execute();
 $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Total records (excluding suspended users)
-$totalRecords = $pdo->query("SELECT COUNT(*) FROM users WHERE status != 'suspended'")->fetchColumn();
+// Total records (excluding suspended users, filtered by admin_id)
+$totalRecords = $pdo->prepare("SELECT COUNT(*) FROM users WHERE status != 'suspended' AND admin_id = ?")->execute([$currentAdminId]) ? $pdo->query("SELECT FOUND_ROWS()")->fetchColumn() : 0;
+$totalRecordsStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE status != 'suspended' AND admin_id = ?");
+$totalRecordsStmt->execute([$currentAdminId]);
+$totalRecords = $totalRecordsStmt->fetchColumn();
 
 // Calculate filtered total if search is applied
 if (!empty($searchValue)) {
-    $countQuery = "SELECT COUNT(*) FROM users WHERE status != :excluded_status 
+    $countQuery = "SELECT COUNT(*) FROM users WHERE status != :excluded_status AND admin_id = :admin_id
                    AND (first_name LIKE :search1 OR last_name LIKE :search2 OR email LIKE :search3)";
     $countStmt = $pdo->prepare($countQuery);
     $countStmt->execute([
         'excluded_status' => 'suspended',
+        'admin_id' => $currentAdminId,
         'search1' => '%' . $searchValue . '%',
         'search2' => '%' . $searchValue . '%',
         'search3' => '%' . $searchValue . '%'

@@ -3,6 +3,18 @@ require_once '../admin_session.php';
 
 header('Content-Type: application/json');
 
+// Verify admin is logged in
+if (!isset($_SESSION['admin_id'])) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized',
+        'data' => []
+    ]);
+    exit();
+}
+
+$currentAdminId = (int)$_SESSION['admin_id'];
+
 try {
     $query = "
         SELECT 
@@ -22,11 +34,12 @@ try {
         LEFT JOIN scam_platforms p ON c.platform_id = p.id
         LEFT JOIN cryptocurrencies cr ON c.crypto_currency_id = cr.id
         LEFT JOIN crypto_exchange_rates cer ON cr.id = cer.crypto_currency_id
+        WHERE c.admin_id = :admin_id
         ORDER BY c.created_at DESC
     ";
     
     $stmt = $pdo->prepare($query);
-    $stmt->execute();
+    $stmt->execute(['admin_id' => $currentAdminId]);
     
     $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

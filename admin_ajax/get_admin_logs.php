@@ -1,7 +1,22 @@
 <?php
 require_once '../../config.php';
+require_once '../admin_session.php';
 
 header('Content-Type: application/json');
+
+// Verify admin is logged in
+if (!isset($_SESSION['admin_id'])) {
+    echo json_encode([
+        'draw' => intval($_POST['draw'] ?? 1),
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Unauthorized'
+    ]);
+    exit();
+}
+
+$currentAdminId = (int)$_SESSION['admin_id'];
 
 try {
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
@@ -12,18 +27,18 @@ try {
     $logType = isset($_POST['log_type']) ? $_POST['log_type'] : 'all';
     $adminId = isset($_POST['admin_id']) ? (int)$_POST['admin_id'] : 0;
     
-    // Base query
+    // Base query - FILTER BY CURRENT ADMIN to show only their own logs
     $query = "
         SELECT 
             al.*,
             CONCAT(a.first_name, ' ', a.last_name) as admin_name
         FROM admin_logs al
         LEFT JOIN admins a ON al.admin_id = a.id
-        WHERE 1=1
+        WHERE al.admin_id = ?
     ";
     
-    $params = [];
-    $countParams = [];
+    $params = [$currentAdminId];
+    $countParams = [$currentAdminId];
     
     // Date range filter
     switch ($dateRange) {
@@ -48,8 +63,10 @@ try {
         $countParams[] = "%$logType%";
     }
     
-    // Admin filter
-    if ($adminId > 0) {
+    // Note: Admin filter is redundant now since we filter by current admin
+    // But keeping it for backward compatibility if needed
+    if ($adminId > 0 && $adminId == $currentAdminId) {
+        // Only allow filtering by self
         $query .= " AND al.admin_id = ?";
         $params[] = $adminId;
         $countParams[] = $adminId;
@@ -63,8 +80,8 @@ try {
         $countParams = array_merge($countParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
     }
     
-    // Get total count
-    $countQuery = "SELECT COUNT(*) FROM admin_logs al LEFT JOIN admins a ON al.admin_id = a.id WHERE 1=1";
+    // Get total count - FILTERED BY CURRENT ADMIN
+    $countQuery = "SELECT COUNT(*) FROM admin_logs al LEFT JOIN admins a ON al.admin_id = a.id WHERE al.admin_id = ?";
     
     // Apply same filters to count query
     switch ($dateRange) {
@@ -86,7 +103,7 @@ try {
         $countQuery .= " AND al.action LIKE ?";
     }
     
-    if ($adminId > 0) {
+    if ($adminId > 0 && $adminId == $currentAdminId) {
         $countQuery .= " AND al.admin_id = ?";
     }
     

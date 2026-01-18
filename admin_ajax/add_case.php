@@ -43,11 +43,12 @@ try {
     $currencyType = $data['currency_type'] ?? 'fiat';
     $cryptoCurrencyId = !empty($data['crypto_currency_id']) ? (int)$data['crypto_currency_id'] : null;
     $assignedAdminId = !empty($data['admin_id']) ? (int)$data['admin_id'] : null;
+    $creatorAdminId = (int)$_SESSION['admin_id']; // Admin who creates the case
     
     if ($currencyType === 'crypto') {
         $stmt = $pdo->prepare("
-            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, crypto_currency_id, crypto_reported_amount, currency_type, status, description, assigned_to, created_at, updated_at)
-            VALUES (:case_number, :user_id, :platform_id, 0, :crypto_currency_id, :crypto_amount, 'crypto', 'open', :description, :admin_id, NOW(), NOW())
+            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, crypto_currency_id, crypto_reported_amount, currency_type, status, description, assigned_to, admin_id, created_at, updated_at)
+            VALUES (:case_number, :user_id, :platform_id, 0, :crypto_currency_id, :crypto_amount, 'crypto', 'open', :description, :assigned_admin_id, :admin_id, NOW(), NOW())
         ");
         $stmt->execute([
             ':case_number' => $caseNumber,
@@ -56,12 +57,13 @@ try {
             ':crypto_currency_id' => $cryptoCurrencyId,
             ':crypto_amount' => (float)$data['reported_amount'],
             ':description' => trim($data['description']),
-            ':admin_id' => $assignedAdminId
+            ':assigned_admin_id' => $assignedAdminId,
+            ':admin_id' => $creatorAdminId
         ]);
     } else {
         $stmt = $pdo->prepare("
-            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, currency_type, status, description, assigned_to, created_at, updated_at)
-            VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'fiat', 'open', :description, :admin_id, NOW(), NOW())
+            INSERT INTO cases (case_number, user_id, platform_id, reported_amount, currency_type, status, description, assigned_to, admin_id, created_at, updated_at)
+            VALUES (:case_number, :user_id, :platform_id, :reported_amount, 'fiat', 'open', :description, :assigned_admin_id, :admin_id, NOW(), NOW())
         ");
         $stmt->execute([
             ':case_number' => $caseNumber,
@@ -69,7 +71,8 @@ try {
             ':platform_id' => (int)$data['platform_id'],
             ':reported_amount' => (float)$data['reported_amount'],
             ':description' => trim($data['description']),
-            ':admin_id' => $assignedAdminId
+            ':assigned_admin_id' => $assignedAdminId,
+            ':admin_id' => $creatorAdminId
         ]);
     }
     $caseId = $pdo->lastInsertId();
@@ -81,10 +84,10 @@ try {
     ");
     $stmt->execute([':case_id' => $caseId, ':admin_id' => (int)$_SESSION['admin_id']]);
 
-    // === 3️⃣ Optional admin assignment ===
+    // === 3️⃣ Optional admin assignment (for assigning to different admin) ===
     if (!empty($data['admin_id']) && $data['admin_id'] != $_SESSION['admin_id']) {
         $stmt = $pdo->prepare("
-            UPDATE cases SET admin_id = :assigned_admin_id, updated_at = NOW() WHERE id = :case_id
+            UPDATE cases SET assigned_to = :assigned_admin_id, updated_at = NOW() WHERE id = :case_id
         ");
         $stmt->execute([
             ':assigned_admin_id' => (int)$data['admin_id'],

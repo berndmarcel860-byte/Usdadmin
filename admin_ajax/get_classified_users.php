@@ -25,6 +25,7 @@ try {
     // Build WHERE clause based on classification
     $where = "1=1";
     $joins = "";
+    $whereExtra = "";
     
     // Filter by admin_id for regular admins (superadmin sees all)
     if ($currentAdminRole !== 'superadmin') {
@@ -43,7 +44,7 @@ try {
             $joins = "INNER JOIN user_onboarding uo ON u.id = uo.user_id";
             break;
         case 'no_onboarding':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM user_onboarding)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM user_onboarding)";
             break;
             
         // Package filters
@@ -57,7 +58,7 @@ try {
             $joins = "INNER JOIN user_packages up ON u.id = up.user_id";
             break;
         case 'no_package':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM user_packages)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM user_packages)";
             break;
             
         // Cases filters
@@ -68,7 +69,7 @@ try {
             $joins = "INNER JOIN cases c ON u.id = c.user_id";
             break;
         case 'no_cases':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM cases)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM cases)";
             break;
             
         // KYC filters
@@ -82,9 +83,12 @@ try {
             $joins = "INNER JOIN kyc_verification_requests k ON u.id = k.user_id";
             break;
         case 'no_kyc':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM kyc_verification_requests)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM kyc_verification_requests)";
             break;
     }
+    
+    // Append extra WHERE conditions
+    $where .= $whereExtra;
     
     // Add search
     if ($search) {

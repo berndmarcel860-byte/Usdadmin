@@ -11,9 +11,9 @@ $isSuperAdmin = ($currentAdminRole === 'superadmin');
 
 // Get classification statistics
 try {
-    // Build WHERE clause for role-based filtering
-    $adminFilter = $isSuperAdmin ? "" : " WHERE u.admin_id = :admin_id";
-    $adminFilterAnd = $isSuperAdmin ? "" : " AND u.admin_id = :admin_id";
+    // Build WHERE clause for role-based filtering - include NULL for backwards compatibility
+    $adminFilter = $isSuperAdmin ? "" : " WHERE (u.admin_id = :admin_id OR u.admin_id IS NULL)";
+    $adminFilterAnd = $isSuperAdmin ? "" : " AND (u.admin_id = :admin_id OR u.admin_id IS NULL)";
     
     // Total users
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM users u" . $adminFilter);

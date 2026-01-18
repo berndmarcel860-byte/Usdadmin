@@ -19,9 +19,10 @@ $currentAdminId = $_SESSION['admin_id'];
 // Get list of users for dropdown (filtered by admin role)
 try {
     if ($currentAdminRole === 'superadmin') {
-        $usersStmt = $pdo->query("SELECT id, first_name, last_name, email FROM users ORDER BY first_name, last_name");
+        $usersStmt = $pdo->query("SELECT id, first_name, last_name, email FROM users WHERE status != 'suspended' ORDER BY first_name, last_name");
     } else {
-        $usersStmt = $pdo->prepare("SELECT id, first_name, last_name, email FROM users WHERE admin_id = ? ORDER BY first_name, last_name");
+        // Include users with matching admin_id OR NULL admin_id (for backwards compatibility)
+        $usersStmt = $pdo->prepare("SELECT id, first_name, last_name, email FROM users WHERE status != 'suspended' AND (admin_id = ? OR admin_id IS NULL) ORDER BY first_name, last_name");
         $usersStmt->execute([$currentAdminId]);
     }
     $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);

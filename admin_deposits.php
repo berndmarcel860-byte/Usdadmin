@@ -18,6 +18,9 @@ require_once 'admin_header.php';
             <div class="d-flex justify-content-between align-items-center">
                 <h5>Deposit Requests</h5>
                 <div class="btn-group">
+                    <button class="btn btn-success" data-toggle="modal" data-target="#addDepositModal">
+                        <i class="anticon anticon-plus"></i> Add Deposit
+                    </button>
                     <button class="btn btn-primary" data-toggle="modal" data-target="#filterDepositsModal">
                         <i class="anticon anticon-filter"></i> Filter
                     </button>
@@ -41,6 +44,68 @@ require_once 'admin_header.php';
                     <tbody></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Deposit Modal -->
+<div class="modal fade" id="addDepositModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Deposit for User</h5>
+                <button type="button" class="close" data-dismiss="modal"><i class="anticon anticon-close"></i></button>
+            </div>
+            <form id="addDepositForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Select User <span class="text-danger">*</span></label>
+                        <select class="form-control" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                        </select>
+                        <small class="form-text text-muted">Select the user for this deposit</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="amount" step="0.01" min="0.01" required>
+                        <small class="form-text text-muted">Enter deposit amount</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method <span class="text-danger">*</span></label>
+                        <select class="form-control" name="method_code" required>
+                            <option value="">-- Select Method --</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="bitcoin">Bitcoin</option>
+                            <option value="ethereum">Ethereum</option>
+                            <option value="credit_card">Credit Card</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Transaction ID / Reference</label>
+                        <input type="text" class="form-control" name="transaction_id" placeholder="Optional transaction reference">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select class="form-control" name="status">
+                            <option value="pending">Pending</option>
+                            <option value="completed" selected>Completed</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                        <small class="form-text text-muted">Set status for this deposit</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Notes</label>
+                        <textarea class="form-control" name="admin_notes" rows="2" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="anticon anticon-plus"></i> Create Deposit
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -228,6 +293,50 @@ $(document).ready(function() {
         const query = $(this).serialize();
         depositsTable.ajax.url('admin_ajax/get_deposits.php?' + query).load();
         $('#filterDepositsModal').modal('hide');
+    });
+
+    // Load users when Add Deposit modal opens
+    $('#addDepositModal').on('show.bs.modal', function() {
+        $.ajax({
+            url: 'admin_ajax/get_users_for_select.php',
+            type: 'GET',
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    const select = $('#addDepositForm select[name="user_id"]');
+                    select.find('option:not(:first)').remove();
+                    (resp.users || []).forEach(function(user) {
+                        select.append(`<option value="${user.id}">${user.first_name} ${user.last_name} (${user.email})</option>`);
+                    });
+                }
+            }
+        });
+    });
+
+    // Add Deposit Form Submit
+    $('#addDepositForm').submit(function(e) {
+        e.preventDefault();
+        const formData = $(this).serialize();
+        
+        $.ajax({
+            url: 'admin_ajax/add_deposit.php',
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    toastr.success(resp.message || 'Deposit created successfully');
+                    $('#addDepositModal').modal('hide');
+                    $('#addDepositForm')[0].reset();
+                    depositsTable.ajax.reload();
+                } else {
+                    toastr.error(resp && resp.message ? resp.message : 'Failed to create deposit');
+                }
+            },
+            error: function() {
+                toastr.error('Server error');
+            }
+        });
     });
 });
 </script>

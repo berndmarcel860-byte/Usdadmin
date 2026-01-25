@@ -21,8 +21,9 @@ try {
     $params = [];
     
     // Role-based filtering: regular admins only see their own users' KYC requests
+    // Include NULL admin_id for backwards compatibility
     if ($currentAdminRole !== 'superadmin') {
-        $query .= " AND u.admin_id = ?";
+        $query .= " AND (u.admin_id = ? OR u.admin_id IS NULL)";
         $params[] = $currentAdminId;
     }
     

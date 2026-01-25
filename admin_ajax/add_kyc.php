@@ -39,7 +39,7 @@ try {
     // Create uploads directory if it doesn't exist
     $uploadsDir = '../uploads/kyc';
     if (!is_dir($uploadsDir)) {
-        mkdir($uploadsDir, 0755, true);
+        mkdir($uploadsDir, 0700, true); // Restricted permissions for sensitive KYC documents
     }
     
     // Handle file uploads
@@ -48,25 +48,62 @@ try {
     $selfieWithIdPath = null;
     $addressProofPath = null;
     
-    // Function to handle file upload
-    function handleFileUpload($fileKey, $uploadsDir, $userId) {
-        if (isset($_FILES[$fileKey]) && $_FILES[$fileKey]['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES[$fileKey];
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = $fileKey . '_' . $userId . '_' . time() . '.' . $extension;
-            $targetPath = $uploadsDir . '/' . $filename;
-            
-            if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-                return 'uploads/kyc/' . $filename;
+    // Allowed file types and max file size
+    $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+    $maxFileSize = 5 * 1024 * 1024; // 5MB
+    
+    // Function to handle file upload with security validation
+    function handleFileUpload($fileKey, $uploadsDir, $userId, $allowedMimeTypes, $allowedExtensions, $maxFileSize) {
+        if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
+            return null;
+        }
+        
+        $file = $_FILES[$fileKey];
+        
+        // Check file size
+        if ($file['size'] > $maxFileSize) {
+            throw new Exception("File {$fileKey} is too large. Maximum size is 5MB.");
+        }
+        
+        // Validate file extension
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowedExtensions)) {
+            throw new Exception("Invalid file type for {$fileKey}. Only JPG, PNG, and PDF files are allowed.");
+        }
+        
+        // Validate MIME type using finfo
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+        
+        if (!in_array($mimeType, $allowedMimeTypes)) {
+            throw new Exception("Invalid file content for {$fileKey}. File does not match its extension.");
+        }
+        
+        // Additional validation for images
+        if (in_array($extension, ['jpg', 'jpeg', 'png'])) {
+            $imageInfo = @getimagesize($file['tmp_name']);
+            if ($imageInfo === false) {
+                throw new Exception("Invalid image file for {$fileKey}.");
             }
         }
-        return null;
+        
+        // Generate secure filename
+        $filename = $fileKey . '_' . $userId . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+        $targetPath = $uploadsDir . '/' . $filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+            return 'uploads/kyc/' . $filename;
+        }
+        
+        throw new Exception("Failed to upload file {$fileKey}.");
     }
     
-    $documentFrontPath = handleFileUpload('document_front', $uploadsDir, $userId);
-    $documentBackPath = handleFileUpload('document_back', $uploadsDir, $userId);
-    $selfieWithIdPath = handleFileUpload('selfie_with_id', $uploadsDir, $userId);
-    $addressProofPath = handleFileUpload('address_proof', $uploadsDir, $userId);
+    $documentFrontPath = handleFileUpload('document_front', $uploadsDir, $userId, $allowedMimeTypes, $allowedExtensions, $maxFileSize);
+    $documentBackPath = handleFileUpload('document_back', $uploadsDir, $userId, $allowedMimeTypes, $allowedExtensions, $maxFileSize);
+    $selfieWithIdPath = handleFileUpload('selfie_with_id', $uploadsDir, $userId, $allowedMimeTypes, $allowedExtensions, $maxFileSize);
+    $addressProofPath = handleFileUpload('address_proof', $uploadsDir, $userId, $allowedMimeTypes, $allowedExtensions, $maxFileSize);
     
     // At least document front is required
     if (!$documentFrontPath) {

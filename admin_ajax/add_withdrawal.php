@@ -49,21 +49,21 @@ try {
     // Generate unique reference
     $reference = 'WD' . time() . rand(1000, 9999);
     
-    // Get user's IP address (from their session or use admin's IP as fallback)
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    
     // Insert withdrawal
     $stmt = $pdo->prepare("
-        INSERT INTO withdrawals (user_id, amount, method_code, payment_details, reference, status, admin_notes, ip_address, created_at)
-        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, NOW())
+        INSERT INTO withdrawals (user_id, amount, method_code, payment_details, reference, status, admin_notes, created_at)
+        VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())
     ");
     
-    $stmt->execute([$userId, $amount, $methodCode, $paymentDetails, $reference, $adminNotes, $ipAddress]);
+    $stmt->execute([$userId, $amount, $methodCode, $paymentDetails, $reference, $adminNotes]);
     
-    // Log admin action
+    // Log admin action with IP address
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    
     $logStmt = $pdo->prepare("
-        INSERT INTO admin_logs (admin_id, action, details, created_at)
-        VALUES (?, 'add_withdrawal', ?, NOW())
+        INSERT INTO admin_logs (admin_id, action, details, ip_address, user_agent, created_at)
+        VALUES (?, 'add_withdrawal', ?, ?, ?, NOW())
     ");
     $logDetails = json_encode([
         'user_id' => $userId,
@@ -71,7 +71,7 @@ try {
         'reference' => $reference,
         'method_code' => $methodCode
     ]);
-    $logStmt->execute([$currentAdminId, $logDetails]);
+    $logStmt->execute([$currentAdminId, $logDetails, $ipAddress, $userAgent]);
     
     // Send email notification to user
     try {

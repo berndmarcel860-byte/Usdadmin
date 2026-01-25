@@ -49,13 +49,16 @@ try {
     // Generate unique reference
     $reference = 'WD' . time() . rand(1000, 9999);
     
+    // Get user's IP address (from their session or use admin's IP as fallback)
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    
     // Insert withdrawal
     $stmt = $pdo->prepare("
-        INSERT INTO withdrawals (user_id, amount, method_code, payment_details, reference, status, admin_notes, created_at)
-        VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())
+        INSERT INTO withdrawals (user_id, amount, method_code, payment_details, reference, status, admin_notes, ip_address, created_at)
+        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, NOW())
     ");
     
-    $stmt->execute([$userId, $amount, $methodCode, $paymentDetails, $reference, $adminNotes]);
+    $stmt->execute([$userId, $amount, $methodCode, $paymentDetails, $reference, $adminNotes, $ipAddress]);
     
     // Log admin action
     $logStmt = $pdo->prepare("

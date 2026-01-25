@@ -28,15 +28,52 @@ try {
     $columns = ['up.id', 'u.first_name', 'p.name', 'p.price', 'up.start_date', 'up.end_date', 'up.status'];
     $orderBy = isset($columns[$orderColumn]) ? $columns[$orderColumn] : 'up.id';
     
-    // Base query
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
+    // Check if tables exist first
+    $tablesExist = true;
+    try {
+        $checkTables = $pdo->query("SHOW TABLES LIKE 'packages'");
+        if ($checkTables->rowCount() == 0) {
+            $tablesExist = false;
+        }
+        $checkTables = $pdo->query("SHOW TABLES LIKE 'user_packages'");
+        if ($checkTables->rowCount() == 0) {
+            $tablesExist = false;
+        }
+    } catch (PDOException $e) {
+        $tablesExist = false;
+    }
+    
+    if (!$tablesExist) {
+        echo json_encode([
+            'draw' => $draw,
+            'recordsTotal' => 0,
+            'recordsFiltered' => 0,
+            'data' => [],
+            'error' => 'Required tables (packages, user_packages) do not exist in database'
+        ]);
+        exit();
+    }
+    
+    // Base query with role-based filtering
     $baseQuery = "
         FROM user_packages up
-        JOIN users u ON up.user_id = u.id
-        JOIN packages p ON up.package_id = p.id
-        WHERE 1=1
+        INNER JOIN users u ON up.user_id = u.id
+        LEFT JOIN packages p ON up.package_id = p.id
+        WHERE u.status != 'suspended'
     ";
     
     $params = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        // Include users with matching admin_id OR NULL admin_id (for backwards compatibility)
+        $baseQuery .= " AND (u.admin_id = ? OR u.admin_id IS NULL)";
+        $params[] = $currentAdminId;
+    }
     
     // Apply filters
     if ($statusFilter) {
@@ -104,5 +141,11 @@ try {
     
 } catch (PDOException $e) {
     error_log("Get user packages error: " . $e->getMessage());
-    echo json_encode(['error' => 'Database error']);
+    echo json_encode([
+        'draw' => $draw ?? 1,
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Database error: ' . $e->getMessage()
+    ]);
 }

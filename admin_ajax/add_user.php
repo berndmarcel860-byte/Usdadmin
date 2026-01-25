@@ -50,12 +50,13 @@ try {
         exit();
     }
 
-    // Insert new user
+    // Insert new user with admin_id tracking
     $stmt = $pdo->prepare("
         INSERT INTO users 
-        (uuid, first_name, last_name, email, password_hash, status, phone, country, force_password_change, created_at, updated_at)
-        VALUES (:uuid, :first_name, :last_name, :email, :password_hash, :status, :phone, :country, :force_password_change, NOW(), NOW())
+        (uuid, first_name, last_name, email, password_hash, status, phone, country, force_password_change, admin_id, created_at, updated_at)
+        VALUES (:uuid, :first_name, :last_name, :email, :password_hash, :status, :phone, :country, :force_password_change, :admin_id, NOW(), NOW())
     ");
+    $data['admin_id'] = $_SESSION['admin_id'];
     $stmt->execute($data);
     $userId = $pdo->lastInsertId();
     

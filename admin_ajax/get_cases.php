@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $query = "
         SELECT 
             c.*, 
@@ -17,11 +21,20 @@ try {
         LEFT JOIN users u ON c.user_id = u.id
         LEFT JOIN admins a ON c.admin_id = a.id
         LEFT JOIN scam_platforms p ON c.platform_id = p.id
-        ORDER BY c.created_at DESC
     ";
     
+    $params = [];
+    
+    // Filter by admin_id if not superadmin
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " WHERE c.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
+    
+    $query .= " ORDER BY c.created_at DESC";
+    
     $stmt = $pdo->prepare($query);
-    $stmt->execute();
+    $stmt->execute($params);
     
     $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

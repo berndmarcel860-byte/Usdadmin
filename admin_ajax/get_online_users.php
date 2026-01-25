@@ -3,8 +3,12 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     // 🕒 Fetch all sessions active within last 5 minutes
-    $stmt = $pdo->prepare("
+    $query = "
         SELECT 
             ou.user_id,
             ou.session_id,
@@ -17,9 +21,20 @@ try {
         FROM online_users ou
         JOIN users u ON ou.user_id = u.id
         WHERE ou.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-        ORDER BY ou.last_activity DESC
-    ");
-    $stmt->execute();
+    ";
+    
+    $params = [];
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND u.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
+    
+    $query .= " ORDER BY ou.last_activity DESC";
+    
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
     $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $data = [];

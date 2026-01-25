@@ -21,13 +21,8 @@ try {
     // Begin transaction
     $pdo->beginTransaction();
     
-    // Delete related records first (adjust based on your schema)
-    $pdo->prepare("DELETE FROM remember_tokens WHERE user_id = ?")->execute([$userId]);
-    $pdo->prepare("DELETE FROM login_logs WHERE user_id = ?")->execute([$userId]);
-    $pdo->prepare("DELETE FROM user_documents WHERE user_id = ?")->execute([$userId]);
-    
-    // Then delete user
-    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+    // Instead of deleting, set user status to 'suspended'
+    $stmt = $pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = ?");
     $stmt->execute([$userId]);
     
     // Log this action
@@ -38,7 +33,7 @@ try {
     ");
     $logStmt->execute([
         $_SESSION['admin_id'],
-        'delete',
+        'suspend',
         'user',
         $userId,
         $_SERVER['REMOTE_ADDR'],
@@ -49,15 +44,15 @@ try {
     
     echo json_encode([
         'success' => true,
-        'message' => 'User deleted successfully',
+        'message' => 'User suspended successfully',
         'id' => $userId
     ]);
 } catch (PDOException $e) {
     $pdo->rollBack();
-    error_log("Delete User Error: " . $e->getMessage());
+    error_log("Suspend User Error: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'Failed to delete user',
+        'message' => 'Failed to suspend user',
         'error' => $e->getMessage()
     ]);
 }

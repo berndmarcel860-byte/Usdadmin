@@ -11,6 +11,10 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 try {
+    // Get current admin role
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     // DataTables parameters
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
@@ -19,8 +23,15 @@ try {
     $classification = isset($_POST['classification']) ? $_POST['classification'] : '';
     
     // Build WHERE clause based on classification
-    $where = "1=1";
+    $where = "u.status != 'suspended'";  // Changed from "1=1" to meaningful default
     $joins = "";
+    $whereExtra = "";
+    
+    // Filter by admin_id for regular admins (superadmin sees all)
+    if ($currentAdminRole !== 'superadmin') {
+        // Include users with matching admin_id OR NULL admin_id (for backwards compatibility)
+        $where .= " AND (u.admin_id = :admin_id OR u.admin_id IS NULL)";
+    }
     
     switch ($classification) {
         // Onboarding filters
@@ -34,7 +45,7 @@ try {
             $joins = "INNER JOIN user_onboarding uo ON u.id = uo.user_id";
             break;
         case 'no_onboarding':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM user_onboarding)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM user_onboarding)";
             break;
             
         // Package filters
@@ -48,7 +59,7 @@ try {
             $joins = "INNER JOIN user_packages up ON u.id = up.user_id";
             break;
         case 'no_package':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM user_packages)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM user_packages)";
             break;
             
         // Cases filters
@@ -59,7 +70,7 @@ try {
             $joins = "INNER JOIN cases c ON u.id = c.user_id";
             break;
         case 'no_cases':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM cases)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM cases)";
             break;
             
         // KYC filters
@@ -73,9 +84,12 @@ try {
             $joins = "INNER JOIN kyc_verification_requests k ON u.id = k.user_id";
             break;
         case 'no_kyc':
-            $where = "u.id NOT IN (SELECT DISTINCT user_id FROM kyc_verification_requests)";
+            $whereExtra = " AND u.id NOT IN (SELECT DISTINCT user_id FROM kyc_verification_requests)";
             break;
     }
+    
+    // Append extra WHERE conditions
+    $where .= $whereExtra;
     
     // Add search
     if ($search) {
@@ -85,6 +99,9 @@ try {
     // Count total records
     $countSql = "SELECT COUNT(DISTINCT u.id) FROM users u $joins WHERE $where";
     $countStmt = $pdo->prepare($countSql);
+    if ($currentAdminRole !== 'superadmin') {
+        $countStmt->bindValue(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
     if ($search) {
         $countStmt->bindValue(':search', "%$search%");
     }
@@ -113,6 +130,9 @@ try {
     ";
     
     $stmt = $pdo->prepare($sql);
+    if ($currentAdminRole !== 'superadmin') {
+        $stmt->bindValue(':admin_id', $currentAdminId, PDO::PARAM_INT);
+    }
     if ($search) {
         $stmt->bindValue(':search', "%$search%");
     }
@@ -130,5 +150,11 @@ try {
     
 } catch (PDOException $e) {
     error_log("Get classified users error: " . $e->getMessage());
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode([
+        'draw' => $draw ?? 1,
+        'recordsTotal' => 0,
+        'recordsFiltered' => 0,
+        'data' => [],
+        'error' => 'Database error: ' . $e->getMessage()
+    ]);
 }

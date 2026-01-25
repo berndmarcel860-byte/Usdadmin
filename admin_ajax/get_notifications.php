@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $draw = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
     $start = isset($_POST['start']) ? (int)$_POST['start'] : 0;
     $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
@@ -25,6 +29,12 @@ try {
     
     $params = [];
     
+    // Role-based filtering: regular admins only see their own notifications
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND n.admin_id = ?";
+        $params[] = $currentAdminId;
+    }
+    
     if ($search) {
         $query .= " AND (n.title LIKE ? OR n.message LIKE ? OR a.first_name LIKE ? OR a.last_name LIKE ?)";
         $searchTerm = "%$search%";
@@ -32,12 +42,23 @@ try {
     }
     
     $countQuery = "SELECT COUNT(*) as total FROM admin_notifications n LEFT JOIN admins a ON n.admin_id = a.id WHERE 1=1";
+    if ($currentAdminRole !== 'superadmin') {
+        $countQuery .= " AND n.admin_id = ?";
+    }
     if ($search) {
         $countQuery .= " AND (n.title LIKE ? OR n.message LIKE ? OR a.first_name LIKE ? OR a.last_name LIKE ?)";
     }
     
+    $countParams = [];
+    if ($currentAdminRole !== 'superadmin') {
+        $countParams[] = $currentAdminId;
+    }
+    if ($search) {
+        $countParams = array_merge($countParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+    }
+    
     $stmt = $pdo->prepare($countQuery);
-    $stmt->execute($search ? [$searchTerm, $searchTerm, $searchTerm, $searchTerm] : []);
+    $stmt->execute($countParams);
     $totalRecords = $stmt->fetchColumn();
     
     $orderColumn = isset($_POST['order'][0]['column']) ? (int)$_POST['order'][0]['column'] : 0;

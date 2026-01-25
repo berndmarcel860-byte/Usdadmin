@@ -4,6 +4,10 @@ require_once '../admin_session.php';
 header('Content-Type: application/json');
 
 try {
+    // Get current admin role and ID
+    $currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+    $currentAdminId = $_SESSION['admin_id'];
+    
     $query = "
         SELECT 
             w.*, 
@@ -17,6 +21,13 @@ try {
     ";
     
     $params = [];
+    
+    // Role-based filtering: regular admins only see their own users' withdrawals
+    // Include NULL admin_id for backwards compatibility
+    if ($currentAdminRole !== 'superadmin') {
+        $query .= " AND (u.admin_id = ? OR u.admin_id IS NULL)";
+        $params[] = $currentAdminId;
+    }
     
     // Apply filters
     if (!empty($_GET['status'])) {

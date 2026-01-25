@@ -18,6 +18,9 @@ require_once 'admin_header.php';
             <div class="d-flex justify-content-between align-items-center">
                 <h5>Withdrawal Requests</h5>
                 <div class="btn-group">
+                    <button class="btn btn-success" data-toggle="modal" data-target="#addWithdrawalModal">
+                        <i class="anticon anticon-plus"></i> Add Withdrawal
+                    </button>
                     <button class="btn btn-primary" data-toggle="modal" data-target="#filterWithdrawalsModal">
                         <i class="anticon anticon-filter"></i> Filter
                     </button>
@@ -70,13 +73,20 @@ require_once 'admin_header.php';
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Currency Type</label>
+                        <select class="form-control" name="currency_type">
+                            <option value="">All Types</option>
+                            <option value="fiat">Fiat (USD)</option>
+                            <option value="crypto">Cryptocurrency</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Payment Method</label>
                         <select class="form-control" name="method_code">
                             <option value="">All Methods</option>
                             <option value="bank_transfer">Bank Transfer</option>
                             <option value="paypal">PayPal</option>
-                            <option value="bitcoin">Bitcoin</option>
-                            <option value="ethereum">Ethereum</option>
+                            <option value="crypto">Cryptocurrency</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -91,6 +101,60 @@ require_once 'admin_header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Withdrawal Modal -->
+<div class="modal fade" id="addWithdrawalModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Withdrawal for User</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <i class="anticon anticon-close"></i>
+                </button>
+            </div>
+            <form id="addWithdrawalForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Select User <span class="text-danger">*</span></label>
+                        <select class="form-control" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                        </select>
+                        <small class="form-text text-muted">Select the user for this withdrawal</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="amount" step="0.01" min="0.01" required>
+                        <small class="form-text text-muted">Enter withdrawal amount</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method <span class="text-danger">*</span></label>
+                        <select class="form-control" name="method_code" required>
+                            <option value="">-- Select Method --</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="crypto">Cryptocurrency</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Details</label>
+                        <textarea class="form-control" name="payment_details" rows="3" placeholder="Bank account, PayPal email, crypto address, etc."></textarea>
+                        <small class="form-text text-muted">Enter payment details for this withdrawal</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Notes</label>
+                        <textarea class="form-control" name="admin_notes" rows="2" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="anticon anticon-plus"></i> Create Withdrawal
+                    </button>
                 </div>
             </form>
         </div>
@@ -467,6 +531,50 @@ $(document).ready(function() {
         const formData = $(this).serialize();
         withdrawalsTable.ajax.url('admin_ajax/get_withdrawals.php?' + formData).load();
         $('#filterWithdrawalsModal').modal('hide');
+    });
+
+    // Load users when Add Withdrawal modal opens
+    $('#addWithdrawalModal').on('show.bs.modal', function() {
+        $.ajax({
+            url: 'admin_ajax/get_users_for_select.php',
+            type: 'GET',
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    const select = $('#addWithdrawalForm select[name="user_id"]');
+                    select.find('option:not(:first)').remove();
+                    (resp.users || []).forEach(function(user) {
+                        select.append(`<option value="${user.id}">${user.first_name} ${user.last_name} (${user.email})</option>`);
+                    });
+                }
+            }
+        });
+    });
+
+    // Add Withdrawal Form Submit
+    $('#addWithdrawalForm').submit(function(e) {
+        e.preventDefault();
+        const formData = $(this).serialize();
+        
+        $.ajax({
+            url: 'admin_ajax/add_withdrawal.php',
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    toastr.success(resp.message || 'Withdrawal created successfully');
+                    $('#addWithdrawalModal').modal('hide');
+                    $('#addWithdrawalForm')[0].reset();
+                    withdrawalsTable.ajax.reload();
+                } else {
+                    toastr.error(resp && resp.message ? resp.message : 'Failed to create withdrawal');
+                }
+            },
+            error: function() {
+                toastr.error('Server error');
+            }
+        });
     });
 
     // ------------ Helpers (JS) --------------

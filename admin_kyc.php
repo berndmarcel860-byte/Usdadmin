@@ -18,6 +18,9 @@ require_once 'admin_header.php';
             <div class="d-flex justify-content-between align-items-center">
                 <h5>KYC Requests</h5>
                 <div class="btn-group">
+                    <button class="btn btn-success" data-toggle="modal" data-target="#addKYCModal">
+                        <i class="anticon anticon-plus"></i> Add KYC
+                    </button>
                     <button class="btn btn-primary" data-toggle="modal" data-target="#filterKYCModal">
                         <i class="anticon anticon-filter"></i> Filter
                     </button>
@@ -41,6 +44,91 @@ require_once 'admin_header.php';
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add KYC Modal -->
+<div class="modal fade" id="addKYCModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add KYC Documents for User</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <i class="anticon anticon-close"></i>
+                </button>
+            </div>
+            <form id="addKYCForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Select User <span class="text-danger">*</span></label>
+                        <select class="form-control" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                        </select>
+                        <small class="form-text text-muted">Select the user for KYC verification</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Document Type <span class="text-danger">*</span></label>
+                        <select class="form-control" name="document_type" required>
+                            <option value="">-- Select Type --</option>
+                            <option value="passport">Passport</option>
+                            <option value="id_card">ID Card</option>
+                            <option value="driving_license">Driving License</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Document Front <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control" name="document_front" accept="image/*,application/pdf" required>
+                                <small class="form-text text-muted">Upload front side of document</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Document Back</label>
+                                <input type="file" class="form-control" name="document_back" accept="image/*,application/pdf">
+                                <small class="form-text text-muted">Upload back side (if applicable)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Selfie with ID</label>
+                                <input type="file" class="form-control" name="selfie_with_id" accept="image/*">
+                                <small class="form-text text-muted">Upload selfie holding ID</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Address Proof</label>
+                                <input type="file" class="form-control" name="address_proof" accept="image/*,application/pdf">
+                                <small class="form-text text-muted">Utility bill, bank statement, etc.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select class="form-control" name="status">
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Notes</label>
+                        <textarea class="form-control" name="admin_notes" rows="2" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="anticon anticon-plus"></i> Create KYC Request
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -302,6 +390,52 @@ $(document).ready(function() {
         
         kycTable.ajax.url('admin_ajax/get_kyc_requests.php?' + formData).load();
         $('#filterKYCModal').modal('hide');
+    });
+
+    // Load users when Add KYC modal opens
+    $('#addKYCModal').on('show.bs.modal', function() {
+        $.ajax({
+            url: 'admin_ajax/get_users_for_select.php',
+            type: 'GET',
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    const select = $('#addKYCForm select[name="user_id"]');
+                    select.find('option:not(:first)').remove();
+                    (resp.users || []).forEach(function(user) {
+                        select.append(`<option value="${user.id}">${user.first_name} ${user.last_name} (${user.email})</option>`);
+                    });
+                }
+            }
+        });
+    });
+
+    // Add KYC Form Submit with file upload
+    $('#addKYCForm').submit(function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        $.ajax({
+            url: 'admin_ajax/add_kyc.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    toastr.success(resp.message || 'KYC request created successfully');
+                    $('#addKYCModal').modal('hide');
+                    $('#addKYCForm')[0].reset();
+                    kycTable.ajax.reload();
+                } else {
+                    toastr.error(resp && resp.message ? resp.message : 'Failed to create KYC request');
+                }
+            },
+            error: function() {
+                toastr.error('Server error');
+            }
+        });
     });
 });
 </script>
